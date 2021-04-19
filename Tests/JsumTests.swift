@@ -18,4 +18,14 @@ class JsumTests: XCTestCase {
         XCTAssertEqual(person.name, "Bob")
         XCTAssertEqual(person.age, 25)
     }
+    
+    /// Just needs to compile
+    func testGenericConstraints() throws {
+        _ = try Transformer<Int, String>.transform(5)
+        _ = try Transformer<[Int], [String]>.transform([5])
+        
+        let person: (name: String, age: Int) = try Jsum.decode(
+            from: ["name": "Bob", "age": 25]
+        )
+    }
 }

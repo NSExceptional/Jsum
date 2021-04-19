@@ -16,7 +16,7 @@ public enum JSON {
     case array([JSON])
     case object([String: JSON])
     
-    var unwrapped: Any {
+    var unwrapped: JSONCodable {
         switch self {
             case .null: return NSNull()
             case .bool(let v): return v

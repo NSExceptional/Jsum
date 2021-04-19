@@ -120,6 +120,7 @@ extension Array: JSONCodable where Element: JSONCodable {
     public static var defaultJSON: JSON { .array([]) }
     
     public static func decode(from json: JSON) throws -> Self {
+//        return json.asArray.map(\.unwrapped)
         return try json.asArray.map(Element.decode(from:))
     }
 }
@@ -129,6 +130,7 @@ extension Dictionary: JSONCodable where Key == String, Value: JSONCodable {
     public static var defaultJSON: JSON { .object([:]) }
     
     public static func decode(from json: JSON) throws -> Self {
+//        return json.asObject.mapValues(\.unwrapped)
         return try json.asObject.mapValues(Value.decode(from:))
     }
 }
