@@ -8,10 +8,26 @@
 
 import Echo
 
+private typealias RawPointer = UnsafeMutableRawPointer
+
+extension RawPointer {
+    static func allocateBuffer(for type: Metadata) -> Self {
+        return RawPointer.allocate(
+            byteCount: type.vwt.size,
+            alignment: type.vwt.flags.alignment
+        )
+    }
+    
+    func storeBytes(ofTupleElement valuePtr: UnsafeRawPointer, layout e: TupleMetadata.Element) {
+        (self + e.offset).copyMemory(from: valuePtr, byteCount: e.metadata.vwt.size)
+    }
+}
+
 public enum Jsum {
     public enum Error: Swift.Error {
         case couldNotDecode(String)
-        case decodingNotSupported
+        case decodingNotSupported(String)
+        case notYetImplemented
     }
     
     static func reflectAllPropsToJSON<T>(_ t: T) -> [String: JSONCodable] {
@@ -31,7 +47,7 @@ public enum Jsum {
 //                return nil
             case .tuple:
                 return try self.decodeTuple(metadata as! TupleMetadata, from: json)
-            default: throw Error.decodingNotSupported
+            default: throw Error.decodingNotSupported("Only tuples can be decoded as of now")
         }
     }
     
