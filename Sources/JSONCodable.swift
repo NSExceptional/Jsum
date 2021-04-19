@@ -43,6 +43,14 @@ extension JSONCodable {
         
         throw JSONDecodableError.decodingNotImplemented
     }
+    
+    var asArray: [JSONCodable]? {
+        return self as? [JSONCodable]
+    }
+    
+    var asDictionary: [String: JSONCodable]? {
+        return self as? [String: JSONCodable]
+    }
 }
 
 extension NSNull: JSONCodable {
