@@ -23,6 +23,14 @@ public protocol JSONCodable {
     static func decode(from json: JSON) throws -> Self
 }
 
+struct AnyJSONCodable {
+    let wrapped: JSONCodable
+    
+    init(_ json: JSONCodable) {
+        self.wrapped = json
+    }
+}
+
 extension JSONCodable {
     /// If neither this property nor decode() are implemented,
     /// `JSONDecodableError.decodingNotImplemented` will be thrown
@@ -51,6 +59,8 @@ extension JSONCodable {
     var asDictionary: [String: JSONCodable]? {
         return self as? [String: JSONCodable]
     }
+    
+    var any: AnyJSONCodable { AnyJSONCodable(self) }
 }
 
 extension NSNull: JSONCodable {
