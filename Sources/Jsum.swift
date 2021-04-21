@@ -18,6 +18,16 @@ extension RawPointer {
         )
     }
     
+    init(wrapping value: Any, withType metadata: Metadata) {
+        self = RawPointer.allocateBuffer(for: metadata)
+        self.storeBytes(of: value, type: metadata)
+    }
+    
+    func storeBytes(of value: Any, type: Metadata) {
+        var box = container(for: value)
+        self.copyMemory(from: box.projectValue(), byteCount: type.vwt.size)
+    }
+    
     func storeBytes(ofTupleElement valuePtr: UnsafeRawPointer, layout e: TupleMetadata.Element) {
         (self + e.offset).copyMemory(from: valuePtr, byteCount: e.metadata.vwt.size)
     }
@@ -30,23 +40,23 @@ public enum Jsum {
         case notYetImplemented
     }
     
-    static func reflectAllPropsToJSON<T>(_ t: T) -> [String: JSONCodable] {
+    static func reflectAllPropsToJSON<T>(_ t: T) -> [String: Any] {
         return ["fake": "object"]
     }
 
-    static func decode<T>(from json: JSONCodable) throws -> T {
+    static func decode<T>(from json: Any) throws -> T {
         let metadata = reflect(T.self)
         let buffer = try self.decode(type: metadata, from: json)
         defer { buffer.deallocate() }
         return buffer.load(as: T.self)
     }
     
-    private static func decode(type metadata: Metadata, from json: JSONCodable) throws -> RawPointer {
+    private static func decode(type metadata: Metadata, from json: Any) throws -> RawPointer {
         switch metadata.kind {
 //            case .class:
 //                <#code#>
-//            case .struct:
-//                <#code#>
+            case .struct:
+                return try self.decodeStruct(metadata as! StructMetadata, from: json)
 //            case .enum:
 //                <#code#>
 //            case .optional:
@@ -57,23 +67,27 @@ public enum Jsum {
         }
     }
     
-    private static func decodeFieldedType(_ type: TypeMetadata, from json: JSONCodable) throws -> RawPointer {
+    private static func decodeFieldedType(_ type: TypeMetadata, from json: Any) throws -> RawPointer {
         throw Error.notYetImplemented
     }
     
-    private static func decodeStruct(_ struct: StructMetadata, from json: JSONCodable) throws -> RawPointer {
+    private static func decodeClass(_ metadata: ClassMetadata, from json: Any) throws -> RawPointer {
         throw Error.notYetImplemented
     }
     
-    private static func decodeTuple(_ tupleMetadata: TupleMetadata, from json: JSONCodable) throws -> RawPointer {
+    private static func decodeStruct(_ metadata: StructMetadata, from json: Any) throws -> RawPointer {
+        throw Error.notYetImplemented
+    }
+    
+    private static func decodeTuple(_ tupleMetadata: TupleMetadata, from json: Any) throws -> RawPointer {
         // Allocate space for the tuple
         let boxBuffer = RawPointer.allocateBuffer(for: tupleMetadata)
         
         // Populate the tuple from an array or dictionary and return a copy of it
-        if let array = json.asArray {
+        if let array = json as? [JSONCodable] {
             return try self.populate(tuple: boxBuffer, from: array, tupleMetadata)
         }
-        if let dictionary = json.asDictionary {
+        if let dictionary = json as? [String: Any] {
             return try self.populate(tuple: boxBuffer, from: dictionary, tupleMetadata)
         }
         
@@ -94,7 +108,7 @@ public enum Jsum {
         return tuple
     }
     
-    private static func populate(tuple: RawPointer, from dict: [String: JSONCodable], _ metadata: TupleMetadata) throws -> RawPointer {
+    private static func populate(tuple: RawPointer, from dict: [String: Any], _ metadata: TupleMetadata) throws -> RawPointer {
         // Copy each value of the dictionary to each tuple element with the same name at the specified offset
         for (e,name) in zip(metadata.elements, metadata.labels) {
             guard let value = dict[name] else {
@@ -107,7 +121,7 @@ public enum Jsum {
         return tuple
     }
     
-    private static func populate(element e: TupleMetadata.Element, ofTuple tuple: RawPointer, with value: JSONCodable) throws {
+    private static func populate(element e: TupleMetadata.Element, ofTuple tuple: RawPointer, with value: Any) throws {
         // If the types do not match up, try decoding it again
         if e.type != type(of: value) {
             let valueBuffer = try decode(type: e.metadata, from: value)

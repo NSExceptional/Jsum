@@ -52,12 +52,12 @@ extension JSONCodable {
         throw JSONDecodableError.decodingNotImplemented
     }
     
-    var asArray: [JSONCodable]? {
-        return self as? [JSONCodable]
+    var asArray: [Any]? {
+        return self as? [Any]
     }
     
-    var asDictionary: [String: JSONCodable]? {
-        return self as? [String: JSONCodable]
+    var asDictionary: [String: Any]? {
+        return self as? [String: Any]
     }
     
     var any: AnyJSONCodable { AnyJSONCodable(self) }
