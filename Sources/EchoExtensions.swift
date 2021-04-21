@@ -9,6 +9,10 @@
 import Foundation
 import Echo
 
+extension Metadata {
+    var isBuiltin: Bool { self.vwt.flags.isPOD }
+}
+
 protocol NominalType: TypeMetadata {
     associatedtype NominalTypeDescriptor: TypeContextDescriptor
     var descriptor: NominalTypeDescriptor { get }
@@ -21,6 +25,9 @@ extension ClassMetadata: NominalType {
 }
 extension StructMetadata: NominalType {    
     typealias NominalTypeDescriptor = StructDescriptor
+}
+extension EnumMetadata: NominalType {
+    typealias NominalTypeDescriptor = EnumDescriptor
 }
 
 extension NominalType {
@@ -50,5 +57,31 @@ extension NominalType {
         let offset = self.fieldOffsets[recordIdx]
         var ptr = object~
         ptr[offset] = value
+    }
+}
+
+extension NominalType {
+    func conforms(to _protocol: Any) -> Bool {
+        let existential = reflect(_protocol) as! MetatypeMetadata
+        let instance = existential.instanceMetadata as! ExistentialMetadata
+        let desc = instance.protocols.first!
+        
+        return !conformances.filter({ $0.protocol == desc }).isEmpty
+    }
+}
+
+extension ClassMetadata {
+    func createInstance<T: AnyObject>(props: [String: Any] = [:]) -> T {
+        var obj = swift_allocObject(
+            for: self,
+            size: self.classSize,
+            alignment: self.instanceAlignmentMask
+        )
+        
+        for (key, value) in props {
+            self.set(value: value, forKey: key, on: &obj)
+        }
+        
+        return unsafeBitCast(obj, to: T.self)
     }
 }
