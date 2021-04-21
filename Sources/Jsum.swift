@@ -76,6 +76,13 @@ public enum Jsum {
     }
     
     private static func decodeStruct(_ metadata: StructMetadata, from json: Any) throws -> RawPointer {
+        if (metadata.isBuiltin) {
+            // Types are identical: return the value itself
+            if type(of: json) == metadata.type {
+                return RawPointer(wrapping: json, withType: metadata)
+            }
+        }
+        
         throw Error.notYetImplemented
     }
     
