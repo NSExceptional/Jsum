@@ -67,9 +67,22 @@ extension EnumMetadata: NominalType {
     typealias NominalTypeDescriptor = EnumDescriptor
 }
 
+// MARK: KVC
 extension NominalType {
-    private func recordIndex(forKey key: String) -> Int? {
+    func recordIndex(forKey key: String) -> Int? {
         return self.descriptor.fields.records.firstIndex { $0.name == key }
+    }
+    
+    func fieldOffset(for key: String) -> Int? {
+        if let idx = self.recordIndex(forKey: key) {
+            return self.fieldOffsets[idx]
+        }
+        
+        return nil
+    }
+    
+    func fieldType(for key: String) -> Metadata? {
+        return self.fields.first(where: { $0.name == key })?.type
     }
     
     var fields: [(name: String, type: Metadata)] {
@@ -81,45 +94,96 @@ extension NominalType {
             )
         }
     }
-    
+}
+
+extension StructMetadata {
     func getValue<T, O>(forKey key: String, from object: O) -> T {
-        let recordIdx = self.recordIndex(forKey: key)!
-        let offset = self.fieldOffsets[recordIdx]
+        let offset = self.fieldOffset(for: key)!
         let ptr = object~
         return ptr[offset]
     }
     
     func set<T, O>(value: T, forKey key: String, on object: inout O) {
-        let recordIdx = self.recordIndex(forKey: key)!
-        let offset = self.fieldOffsets[recordIdx]
-        var ptr = object~
-        ptr[offset] = value
+        self.set(value: value, forKey: key, pointer: object~)
+    }
+    
+    func set(value: Any, forKey key: String, pointer ptr: RawPointer) {
+        let offset = self.fieldOffset(for: key)!
+        let type = self.fieldType(for: key)!
+        ptr.storeBytes(of: value, type: type, offset: offset)
     }
 }
 
-extension NominalType {
+extension ClassMetadata {
+    func getValue<T, O>(forKey key: String, from object: O) -> T {
+        guard let offset = self.fieldOffset(for: key) else {
+            if let sup = self.superclassMetadata {
+                return sup.getValue(forKey: key, from: object)
+            } else {
+                fatalError("Class '\(self.descriptor.name)' has no member '\(key)'")
+            }
+        }
+
+        let ptr = object~
+        return ptr[offset]
+    }
+    
+    func set<T, O>(value: T, forKey key: String, on object: inout O) {
+        self.set(value: value, forKey: key, pointer: object~)
+    }
+    
+    func set(value: Any, forKey key: String, pointer ptr: RawPointer) {
+        guard let offset = self.fieldOffset(for: key) else {
+            if let sup = self.superclassMetadata {
+                return sup.set(value: value, forKey: key, pointer: ptr)
+            } else {
+                fatalError("Class '\(self.descriptor.name)' has no member '\(key)'")
+            }
+        }
+        
+        let type = self.fieldType(for: key)!
+        ptr.storeBytes(of: value, type: type, offset: offset)
+    }
+}
+
+// MARK: Protocol conformance checking
+extension TypeMetadata {
     func conforms(to _protocol: Any) -> Bool {
         let existential = reflect(_protocol) as! MetatypeMetadata
         let instance = existential.instanceMetadata as! ExistentialMetadata
         let desc = instance.protocols.first!
         
-        return !conformances.filter({ $0.protocol == desc }).isEmpty
+        return !self.conformances.filter({ $0.protocol == desc }).isEmpty
     }
 }
 
+// MARK: MetadataKind
+extension MetadataKind {
+    var isObject: Bool {
+        return self == .class || self == .objcClassWrapper
+    }
+}
+
+// MARK: Object allocation
 extension ClassMetadata {
     func createInstance<T: AnyObject>(props: [String: Any] = [:]) -> T {
         var obj = swift_allocObject(
             for: self,
-            size: self.classSize,
+            size: self.instanceSize,
             alignment: self.instanceAlignmentMask
         )
         
         for (key, value) in props {
+            // Retain object values as needed since they are not
+            // retained when stored via this method and passed as Any
+            Unmanaged.retainIfObject(value)
+            // TODO: this shouldn't be inout for this case
             self.set(value: value, forKey: key, on: &obj)
         }
         
-        return unsafeBitCast(obj, to: T.self)
+        return Unmanaged.fromOpaque(obj).takeRetainedValue()
+    }
+}
 
 // MARK: Populating AnyExistentialContainer
 extension AnyExistentialContainer {
