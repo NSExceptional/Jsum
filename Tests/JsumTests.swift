@@ -21,8 +21,8 @@ class JsumTests: XCTestCase {
     
     /// Just needs to compile
     func testGenericConstraints() throws {
-        _ = try Transformer<Int, String>.transform(5)
-        _ = try Transformer<[Int], [String]>.transform([5])
+        _ = try Transform<Int, String>.transform(5)
+        _ = try Transform<[Int], [String]>.transform([5])
         
         let _: (name: String, age: Int) = try Jsum.decode(
             from: ["name": "Bob", "age": 25]
