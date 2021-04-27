@@ -39,7 +39,8 @@ extension RawPointer {
         )
     }
     
-    /// Allocates space for and stores a value
+    /// Allocates space for and stores a value.
+    /// You should probably use AnyExistentialContainer instead.
     init(wrapping value: Any, withType metadata: Metadata) {
         self = RawPointer.allocateBuffer(for: metadata)
         self.storeBytes(of: value, type: metadata)
