@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Echo
 
 public enum JSONDecodableError: Error {
     case decodingNotImplemented
@@ -28,6 +29,32 @@ struct AnyJSONCodable {
     
     init(_ json: JSONCodable) {
         self.wrapped = json
+    }
+}
+
+extension JSONCodable {
+    var existential: AnyExistentialContainer { container(for: self) }
+    var isClass: Bool { self.existential.metadata.kind.isObject }
+    static var existential: AnyExistentialContainer { container(for: self) }
+    static var isClass: Bool {
+        let metadata = self.existential.metadata as! MetatypeMetadata
+        return metadata.instanceMetadata.kind.isObject
+    }
+    
+    public var toJSON: JSON {
+        if self.isClass {
+            return .object(["class": .string("\(type(of: self))")])
+        }
+        
+        return .null
+    }
+    
+    public static var defaultJSON: JSON {
+        if self.isClass {
+            return .object([:])
+        }
+        
+        return .null
     }
 }
 
