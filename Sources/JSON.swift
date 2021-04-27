@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum JSON {
+public enum JSON: Equatable {
     case null
     case bool(Bool)
     case int(Int)
