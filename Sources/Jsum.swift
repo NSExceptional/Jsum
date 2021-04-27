@@ -6,32 +6,8 @@
 //  Copyright © 2021 Tanner Bennett. All rights reserved.
 //
 
+import Foundation
 import Echo
-
-private typealias RawPointer = UnsafeMutableRawPointer
-
-extension RawPointer {
-    static func allocateBuffer(for type: Metadata) -> Self {
-        return RawPointer.allocate(
-            byteCount: type.vwt.size,
-            alignment: type.vwt.flags.alignment
-        )
-    }
-    
-    init(wrapping value: Any, withType metadata: Metadata) {
-        self = RawPointer.allocateBuffer(for: metadata)
-        self.storeBytes(of: value, type: metadata)
-    }
-    
-    func storeBytes(of value: Any, type: Metadata) {
-        var box = container(for: value)
-        self.copyMemory(from: box.projectValue(), byteCount: type.vwt.size)
-    }
-    
-    func storeBytes(ofTupleElement valuePtr: UnsafeRawPointer, layout e: TupleMetadata.Element) {
-        (self + e.offset).copyMemory(from: valuePtr, byteCount: e.metadata.vwt.size)
-    }
-}
 
 public enum Jsum {
     public enum Error: Swift.Error {
