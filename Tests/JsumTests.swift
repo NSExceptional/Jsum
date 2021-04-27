@@ -30,9 +30,6 @@ class JsumTests: XCTestCase {
     }
     
     func testBuiltinMetadata() {
-        let metadata = KnownMetadata.Builtin.int64
-        XCTAssert(metadata.isBuiltin)
-        
         let intm = reflect(Int.self)
         XCTAssert(intm.isBuiltin)
         
@@ -47,11 +44,6 @@ class JsumTests: XCTestCase {
         XCTAssert(metadata.fields.isEmpty)
         XCTAssert(metadata.vwt.size == 0)
     }
-    
-//    func testEnumTypeNoFields() {
-//        let metadata = reflectEnum(JSON.self)!
-//        XCTAssert(metadata.descriptor.fields.records.first!.flags.isVar)
-//    }
     
     func testFieldedTypeHasNoComputedFields() {
         let metadata = reflectClass(Person.self)!
@@ -77,11 +69,36 @@ class JsumTests: XCTestCase {
     func testAllocObject() {
         let expect = XCTestExpectation(description: "deinit")
         let cls = reflectClass(JustDeallocateMe.self)!
+        
         DispatchQueue.global().async {
-            var obj: JustDeallocateMe? = cls.createInstance(props: ["expectation": expect])
-            obj = nil
+            var _: JustDeallocateMe = cls.createInstance(props: ["expectation": expect])
         }
         
-        self.wait(for: [expect], timeout: 2)
+        self.wait(for: [expect], timeout: 20)
+    }
+    
+    func testJSONCodableExistentials() {
+        let type: JSONCodable.Type = Employee.self as JSONCodable.Type
+        XCTAssert(type.isClass)
+        
+        XCTAssertEqual(Employee.bob.toJSON.asObject, ["class": JSON.string("Employee")])
+    }
+    
+    func testDecodeEmployee() {
+        let data: [String : Any] = [
+            "position": "Programmer",
+            "salary": 120_000,
+            "cubicleSize": ["width": 9, "height": 5],
+            "name": "Janice",
+            "age": 30
+        ]
+        
+        let employee: Employee = try! Jsum.decode(from: data)
+        
+        XCTAssertEqual(employee.name, data["name"] as! String)
+        XCTAssertEqual(employee.age, data["age"] as! Int)
+        XCTAssertEqual(employee.cubicleSize, Size(width: 9, height: 5))
+        XCTAssertEqual(employee.position, data["position"] as! String)
+        XCTAssertEqual(employee.salary, Double(data["salary"] as! Int))
     }
 }
