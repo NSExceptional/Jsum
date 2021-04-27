@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Jsum
 import XCTest
 
 protocol Conformable { }
@@ -47,7 +48,7 @@ class Person: Equatable, Conformable {
     }
 }
 
-class Employee: Person {
+class Employee: Person, JSONCodable {    
     private(set) var position: String
     private(set) var salary: Double
     let cubicleSize = Size(width: 5, height: 7)
@@ -55,6 +56,8 @@ class Employee: Person {
     var job: (position: String, salary: Double) {
         return (self.position, self.salary)
     }
+    
+    static var bob = Employee(name: "Bob", age: 52, position: "Programmer")
     
     internal init(name: String, age: Int, position: String, salary: Double = 60_000) {
         self.position = position
