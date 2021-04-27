@@ -120,5 +120,35 @@ extension ClassMetadata {
         }
         
         return unsafeBitCast(obj, to: T.self)
+
+// MARK: Populating AnyExistentialContainer
+extension AnyExistentialContainer {
+    var toAny: Any {
+        return unsafeBitCast(self, to: Any.self)
+    }
+    
+    var isEmpty: Bool {
+        return self.data == (0, 0, 0)
+    }
+    
+    init(boxing valuePtr: RawPointer, type: Metadata) {
+        self = .init(metadata: type)
+        self.store(value: valuePtr)
+    }
+    
+    mutating func store(value newValuePtr: RawPointer) {
+        self.getValueBuffer().copyMemory(from: newValuePtr, type: self.metadata)
+    }
+    
+    /// Calls into `projectValue()` but will allocate a box
+    /// first if needed for types that are not inline
+    mutating func getValueBuffer() -> RawPointer {
+        // Allocate a box if needed and return it
+        if !self.metadata.vwt.flags.isValueInline && self.data.0 == 0 {
+            return self.metadata.allocateBoxForExistential(in: &self)~
+        }
+        
+        // We don't need a box or already have one
+        return self.projectValue()~
     }
 }
