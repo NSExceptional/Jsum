@@ -8,9 +8,46 @@
 
 import Foundation
 import Echo
+import CEcho
+
+typealias RawType = UnsafeRawPointer
+
+/// For some reason, breaking it all out into separate vars like this
+/// eliminated a bug where the pointers in the final set were not the
+/// same pointers that would appear if you manually reflected a type
+extension KnownMetadata.Builtin {
+    static var jsumSupported: Set<RawType> = Set(_typePtrs)
+    
+    private static var _types: [Any.Type] {
+        return [
+            Int8.self, Int16.self, Int32.self, Int64.self, Int.self,
+            UInt8.self, UInt16.self, UInt32.self, UInt64.self, UInt.self,
+            Float32.self, Float64.self, Float80.self, Float.self, Double.self
+        ]
+    }
+    
+    private static var _typePtrs: [RawType] {
+        return self._types.map({ type in
+            let metadata = reflect(type)
+            return metadata.ptr
+        })
+    }
+}
 
 extension Metadata {
-    var isBuiltin: Bool { self.vwt.flags.isPOD }
+    /// This doesn't actually work very well since Double etc aren't opaque,
+    /// but instead contain a single member that is itself opaque
+    var isBuiltin_alt: Bool {
+        return self is OpaqueMetadata
+    }
+    
+    var isBuiltin: Bool {
+        guard self.vwt.flags.isPOD else {
+            return false
+        }
+        
+        return KnownMetadata.Builtin.jsumSupported.contains(self.ptr)
+    }
 }
 
 protocol NominalType: TypeMetadata {
