@@ -22,6 +22,9 @@ public protocol JSONCodable {
     static var jsonKeyPathForDecoding: PartialKeyPath<JSON> { get }
     /// Initialize an instance of the conformer from JSON
     static func decode(from json: JSON) throws -> Self
+    typealias CustomCoding = [Property]
+    /// An array of `Property`s which describe the coding behavior of the type
+    @PropertyBuilder static var coding: CustomCoding { get }
 }
 
 struct AnyJSONCodable {
@@ -55,6 +58,11 @@ extension JSONCodable {
         }
         
         return .null
+    }
+    
+    @PropertyBuilder
+    public static var coding: CustomCoding {
+        Property.empty()
     }
 }
 

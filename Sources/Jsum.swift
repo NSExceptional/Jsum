@@ -56,21 +56,29 @@ public enum Jsum {
     
     private static func decode<M: NominalType>(properties: [String: Any], forType metadata: M) throws -> [String: Any] {
         var props = properties
-        for (key, type) in metadata.fields {
+        for (key, fieldType) in metadata.fields {
             if let value = props[key] {
-                // Decode the value into a buffer, copy the buffer into
-                // a new AnyExistentialContainer and return it as Any
-                props[key] = try self.decode(type: type, from: value)
+                if let codableType = fieldType as? JSONCodable.Type {
+                    if let customPropertyBehavior = codableType.coding.filter({ $0.propertyName == key }).first {
+                        // TODO: Implement transformations based on `CustomCoding`
+//                        if let keyed = customPropertyBehavior.keyedAs {}
+//                        if let transformTo = customPropertyBehavior.transformTo {}
+                    }
+                } else {
+                    // Decode the value into a buffer, copy the buffer into
+                    // a new AnyExistentialContainer and return it as Any
+                    props[key] = try self.decode(type: fieldType, from: value)
+                }
             } else {
                 // If the type we're given is JSONCodable, use the type's default value
-                if let type = type as? TypeMetadata, type.conforms(to: JSONCodable.self) {
+                if let type = fieldType as? TypeMetadata, type.conforms(to: JSONCodable.self) {
                     // TODO: if optional, check if the optional's Wrapped type provides
                     // a default value and use that instead.
                     let codable = type as! JSONCodable.Type
                     props[key] = codable.defaultJSON.unwrapped
                 } else {
                     throw Error.couldNotDecode(
-                        "Missing key '\(key)' with no default value for type '\(type.type)'"
+                        "Missing key '\(key)' with no default value for type '\(fieldType.type)'"
                     )
                 }
             }
