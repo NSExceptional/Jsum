@@ -27,8 +27,15 @@ public enum Jsum {
     }
     
     private static func decode(type metadata: Metadata, from json: Any) throws -> Any {
+        // Case: NSNull and not optional
+        if json is NSNull && metadata.kind != .optional {
+            throw Error.couldNotDecode(
+                "Type '\(metadata.type)' cannot be converted from null"
+            )
+        }
+        
         // Case: Strings, arrays of exact type, etc...
-        guard metadata.type != reflect(json).type else {
+        guard metadata.type != type(of: json) else {
             // TODO: will this inadvertently execute for Array
             // when the generic parameters don't match up?
             return json
@@ -64,19 +71,30 @@ public enum Jsum {
     }
     
     private static func decode<M: NominalType>(properties: [String: Any], forType metadata: M) throws -> [String: Any] {
-        var props = properties
+        let (transformers, jsonMap) = metadata.jsonCodableInfoByProperty
+        var decodedProps: [String: Any] = [:]
+        
+        // TODO decode super props
         for (key, type) in metadata.fields {
-            if let value = props[key] {
+            let jsonKeyPathForProperty = jsonMap[key] ?? key
+            // TODO: propogate thrown errors
+            if var value = try? properties.value(for: jsonKeyPathForProperty) {
+                // Transform value fisrt, if desired
+                if let transform = transformers[key] {
+                    // Pass NSNull as nil to transformers
+                    value = try transform.transform(forward: value is NSNull ? nil : value)
+                }
+                
                 // Decode the value into a buffer, copy the buffer into
                 // a new AnyExistentialContainer and return it as Any
-                props[key] = try self.decode(type: type, from: value)
+                decodedProps[key] = try self.decode(type: type, from: value)
             } else {
                 // If the type we're given is JSONCodable, use the type's default value
                 if let type = type as? TypeMetadata, type.conforms(to: JSONCodable.self) {
                     // TODO: if optional, check if the optional's Wrapped type provides
                     // a default value and use that instead.
                     let codable = type as! JSONCodable.Type
-                    props[key] = codable.defaultJSON.unwrapped
+                    decodedProps[key] = codable.defaultJSON.unwrapped
                 } else {
                     throw Error.couldNotDecode(
                         "Missing key '\(key)' with no default value for type '\(type.type)'"
@@ -85,7 +103,7 @@ public enum Jsum {
             }
         }
         
-        return props
+        return decodedProps
     }
     
     // MARK: Class decoding
@@ -156,7 +174,8 @@ public enum Jsum {
         
         // Copy each element of the array to each tuple element at the specified offset
         for (e,value) in zip(metadata.elements, array) {
-            try self.populate(element: e, ofTuple: tuple, with: value)
+            let newValue = try self.decode(type: e.metadata, from: value)
+            try self.populate(element: e, ofTuple: tuple, with: newValue)
         }
     }
     
@@ -167,7 +186,8 @@ public enum Jsum {
                 throw Error.couldNotDecode("Missing tuple label '\(name)' in payload")
             }
             
-            try self.populate(element: e, ofTuple: tuple, with: value)
+            let newValue = try self.decode(type: e.metadata, from: value)
+            try self.populate(element: e, ofTuple: tuple, with: newValue)
         }
     }
     
