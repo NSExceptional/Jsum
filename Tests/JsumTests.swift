@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import Foundation
 @testable import Jsum
 @testable import Echo
 
@@ -84,7 +85,7 @@ class JsumTests: XCTestCase {
         XCTAssertEqual(Employee.bob.toJSON.asObject, ["class": JSON.string("Employee")])
     }
     
-    func testDecodeEmployee() {
+    func testDecodeEmployee() throws {
         let data: [String : Any] = [
             "position": "Programmer",
             "salary": 120_000,
@@ -93,12 +94,47 @@ class JsumTests: XCTestCase {
             "age": 30
         ]
         
-        let employee: Employee = try! Jsum.decode(from: data)
+        let employee: Employee = try Jsum.decode(from: data)
         
         XCTAssertEqual(employee.name, data["name"] as! String)
         XCTAssertEqual(employee.age, data["age"] as! Int)
         XCTAssertEqual(employee.cubicleSize, Size(width: 9, height: 5))
         XCTAssertEqual(employee.position, data["position"] as! String)
         XCTAssertEqual(employee.salary, Double(data["salary"] as! Int))
+    }
+    
+    func testDecodePostWithCustomTransformers() throws {
+        let data: [String: Any] = [
+            "title": "My cat is so cute",
+            "body_markdown": NSNull(),
+            "saved": NSNull(),
+            "details": [
+                "score": "-25034",
+                "upvoted": NSNull()
+            ]
+        ]
+        
+        let post: Post = try Jsum.decode(from: data)
+        XCTAssertEqual(post.score, -25034)
+        XCTAssertEqual(post.saved, false)
+        XCTAssertEqual(post.upvoted, false)
+        XCTAssertEqual(post.body, nil)
+    }
+    
+    func testOptionals() {
+        // Just needs to not crash
+        let anyOptional: Any? = nil
+        let _: Int? = anyOptional as! Int?
+        let any = anyOptional as Any
+        
+        // Assumptions about types
+        let type = reflect(any)
+        XCTAssertEqual(type.kind, .optional)
+        XCTAssert((type as! EnumMetadata).genericMetadata.first!.type == Any.self)
+    }
+    
+    func testNSNumber() {
+        // Just needs to not crash
+        let _ = -1234 as AnyObject as! NSNumber
     }
 }

@@ -73,6 +73,42 @@ class Employee: Person, JSONCodable {
     }
 }
 
+/// Example data:
+/// ```
+/// {
+///     "title": "…",
+///     "body_markdown": "…",
+///     "saved": null,
+///     "details": {
+///         "score": "-1234",
+///         "upvoted: null
+///     }
+/// }
+struct Post: JSONCodable {
+    /// Never null, always there
+    let title: String
+    /// Comes from `body_markdown`, could be missing
+    let body: String?
+    /// Comes in as string
+    let score: Int
+    /// Comes in as "true"/"false"/null
+    let saved: Bool
+    /// Comes in as 1/0/null
+    let upvoted: Bool
+    
+    static var transformersByProperty: [String: AnyTransformer] = [
+        "score": Transform<String,Int>(),
+        "saved": Transform<String,Bool>(),
+        "upvoted": Transform<Int,Bool>(),
+    ]
+    
+    static var jsonKeyPathsByProperty: [String : String] = [
+        "body": "body_markdown",
+        "score": "details.score",
+        "upvoted": "details.upvoted"
+    ]
+}
+
 class JustDeallocateMe {
     var expectation: XCTestExpectation
     
