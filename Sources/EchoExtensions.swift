@@ -11,6 +11,7 @@ import Echo
 import CEcho
 
 typealias RawType = UnsafeRawPointer
+typealias Field = (name: String, type: Metadata)
 
 /// For some reason, breaking it all out into separate vars like this
 /// eliminated a bug where the pointers in the final set were not the
@@ -55,6 +56,7 @@ protocol NominalType: TypeMetadata {
     var descriptor: NominalTypeDescriptor { get }
     var genericMetadata: [Metadata] { get }
     var fieldOffsets: [Int] { get }
+    var fields: [Field] { get }
 }
 
 extension ClassMetadata: NominalType {
@@ -65,6 +67,20 @@ extension StructMetadata: NominalType {
 }
 extension EnumMetadata: NominalType {
     typealias NominalTypeDescriptor = EnumDescriptor
+}
+
+// MARK: JSONCodable
+extension NominalType {
+    var jsonCodableInfoByProperty: JSONCodableInfo {
+        if let jsoncodable = self.type as? JSONCodable.Type {
+            return (
+                jsoncodable.transformersByProperty,
+                jsoncodable.jsonKeyPathsByProperty
+            )
+        }
+        
+        return ([:], [:])
+    }
 }
 
 // MARK: KVC
@@ -85,7 +101,7 @@ extension NominalType {
         return self.fields.first(where: { $0.name == key })?.type
     }
     
-    var fields: [(name: String, type: Metadata)] {
+    var _shallowFields: [Field] {
         let r: [FieldRecord] = self.descriptor.fields.records
         return r.filter(\.hasMangledTypeName).map {
             return (
@@ -112,6 +128,8 @@ extension StructMetadata {
         let type = self.fieldType(for: key)!
         ptr.storeBytes(of: value, type: type, offset: offset)
     }
+    
+    var fields: [Field] { self._shallowFields }
 }
 
 extension ClassMetadata {
@@ -144,6 +162,19 @@ extension ClassMetadata {
         let type = self.fieldType(for: key)!
         ptr.storeBytes(of: value, type: type, offset: offset)
     }
+    
+    /// Consolidate all fields in the class hierarchy
+    var fields: [Field] {
+        if let sup = self.superclassMetadata, sup.isSwiftClass {
+            return self._shallowFields + sup.fields
+        }
+        
+        return self._shallowFields
+    }
+}
+
+extension EnumMetadata {
+    var fields: [Field] { self._shallowFields }
 }
 
 // MARK: Protocol conformance checking
