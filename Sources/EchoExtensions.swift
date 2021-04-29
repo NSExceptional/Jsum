@@ -216,6 +216,21 @@ extension ClassMetadata {
     }
 }
 
+// MARK: Struct initialization
+extension StructMetadata {
+    func createInstance(props: [String: Any] = [:]) -> Any {
+        var box = AnyExistentialContainer(metadata: self)
+        for (key, value) in props {
+            // Retain object values as needed since they are not
+            // retained when stored via this method and passed as Any
+            Unmanaged.retainIfObject(value)
+            self.set(value: value, forKey: key, pointer: box.getValueBuffer())
+        }
+        
+        return box.toAny
+    }
+}
+
 // MARK: Populating AnyExistentialContainer
 extension AnyExistentialContainer {
     var toAny: Any {

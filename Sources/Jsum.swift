@@ -100,16 +100,7 @@ public enum Jsum {
         }
         
         let decodedProps = try self.decode(properties: json, forType: metadata)
-        
-        var box = AnyExistentialContainer(metadata: metadata)
-        for (key, value) in decodedProps {
-            // Retain object values as needed since they are not
-            // retained when stored via this method and passed as Any
-            Unmanaged.retainIfObject(value)
-            metadata.set(value: value, forKey: key, pointer: box.getValueBuffer())
-        }
-        
-        return box.toAny
+        return metadata.createInstance(props: decodedProps)
     }
     
     // MARK: Built-in decoding
