@@ -198,7 +198,7 @@ extension MetadataKind {
 // MARK: Object allocation
 extension ClassMetadata {
     func createInstance<T: AnyObject>(props: [String: Any] = [:]) -> T {
-        var obj = swift_allocObject(
+        let obj = swift_allocObject(
             for: self,
             size: self.instanceSize,
             alignment: self.instanceAlignmentMask
@@ -209,7 +209,7 @@ extension ClassMetadata {
             // retained when stored via this method and passed as Any
             Unmanaged.retainIfObject(value)
             // TODO: this shouldn't be inout for this case
-            self.set(value: value, forKey: key, on: &obj)
+            self.set(value: value, forKey: key, pointer: obj~)
         }
         
         return Unmanaged.fromOpaque(obj).takeRetainedValue()
