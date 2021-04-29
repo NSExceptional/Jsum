@@ -170,3 +170,30 @@ extension Dictionary: JSONCodable where Key == String, Value: JSONCodable {
         return try json.asObject.mapValues(Value.decode(from:))
     }
 }
+
+extension Dictionary where Key == String {
+    func value(for jsonKeyPath: String) throws -> Any? {
+        if jsonKeyPath.contains(".") {
+            // Nested key paths must consist of at least "x.x"
+            assert(jsonKeyPath.count > 2)
+            
+            // Get list of keys from key path, stop at the last key
+            var keys = jsonKeyPath.split(separator: ".").map(String.init)
+            let lastKey = keys.popLast()!
+            
+            // Iteratively get nested dictionaries until we reach the last key
+            var dict = self
+            for key in keys {
+                if let subdict = dict[key] as? Self {
+                    dict = subdict
+                } else {
+                    throw Jsum.Error.couldNotDecode("Invalid JSON key path '\(jsonKeyPath)'")
+                }
+            }
+            
+            return dict[lastKey]
+        }
+        
+        return self[jsonKeyPath]
+    }
+}
