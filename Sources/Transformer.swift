@@ -12,12 +12,10 @@ public enum TransformError: Error {
     case notConvertible
 }
 
-public class AnyTransformer { }
-
 public class OpaqueTransformer {
-    public typealias Transformation = (Any?) -> Any?
-    internal var forwardBlock: Transformation? = nil
-    internal var reverseBlock: Transformation? = nil
+    public typealias Transformation = (Any?) -> Any
+    fileprivate var forwardBlock: Transformation? = nil
+    fileprivate var reverseBlock: Transformation? = nil
     
     internal init() { }
     
@@ -31,16 +29,22 @@ public class OpaqueTransformer {
         self.reverseBlock = reverseBlock
     }
     
-    public func transform(forward value: Any?) -> Any? {
+    public func transform(forward value: Any?) throws -> Any {
         return self.forwardBlock!(value)
     }
     
-    public func transform(reverse value: Any?) -> Any? {
+    public func transform(reverse value: Any?) throws -> Any {
         return self.reverseBlock!(value)
     }
 }
 
+public typealias AnyTransformer = OpaqueTransformer
+
 public class Transform<T: JSONCodable, U: JSONCodable>: OpaqueTransformer {
+    public enum Error: Swift.Error {
+        case typeMismatch(given: Any.Type, expected: Any.Type)
+    }
+    
     public static func transform(_ t: T?) throws -> U {
         return try U.decode(from: t?.toJSON ?? T.defaultJSON)
     }
@@ -59,19 +63,19 @@ public class Transform<T: JSONCodable, U: JSONCodable>: OpaqueTransformer {
         return try Self.reverse(u)
     }
     
-    override public func transform(forward value: Any?) -> Any? {
-        if let t = value as? T {
-            return try? self.transform(t)
+    override public func transform(forward value: Any?) throws -> Any {
+        guard let t = value as? T? else {
+            throw Error.typeMismatch(given: type(of: value), expected: T.self)
         }
         
-        return nil
+        return try self.transform(t) as Any
     }
     
-    override public func transform(reverse value: Any?) -> Any? {
-        if let u = value as? U {
-            return try? self.reverse(u)
+    override public func transform(reverse value: Any?) throws -> Any {
+        guard let u = value as? U? else {
+            throw Error.typeMismatch(given: type(of: value), expected: U.self)
         }
         
-        return nil
+        return try self.reverse(u)
     }
 }

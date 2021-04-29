@@ -12,6 +12,11 @@ public enum JSONDecodableError: Error {
     case decodingNotImplemented
 }
 
+typealias JSONCodableInfo = (
+    transformers: [String: AnyTransformer],
+    jsonKeyPaths: [String: String]
+)
+
 public protocol JSONCodable {
     /// Encodes the conformer to JSON
     var toJSON: JSON { get }
@@ -20,6 +25,8 @@ public protocol JSONCodable {
     /// A key path to a computed property to use to initialize
     /// the conformer or throw an error if the result is nil
     static var jsonKeyPathForDecoding: PartialKeyPath<JSON> { get }
+    static var transformersByProperty: [String: AnyTransformer] { get }
+    static var jsonKeyPathsByProperty: [String: String] { get }
     /// Initialize an instance of the conformer from JSON
     static func decode(from json: JSON) throws -> Self
 }
@@ -62,6 +69,8 @@ extension JSONCodable {
     /// If neither this property nor decode() are implemented,
     /// `JSONDecodableError.decodingNotImplemented` will be thrown
     public static var jsonKeyPathForDecoding: PartialKeyPath<JSON> { \JSON.self }
+    public static var transformersByProperty: [String: AnyTransformer] { [:] }
+    public static var jsonKeyPathsByProperty: [String: String] { [:] }
     
     public static func decode(from json: JSON) throws -> Self {
         if let keyPath = self.jsonKeyPathForDecoding as? KeyPath<JSON,Self?> {
