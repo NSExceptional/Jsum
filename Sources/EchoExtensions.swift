@@ -246,6 +246,16 @@ extension AnyExistentialContainer {
         self.store(value: valuePtr)
     }
     
+    init(nil optionalType: EnumMetadata) {
+        self = .init(metadata: optionalType)
+        
+        // Zero memory
+        let size = optionalType.vwt.size
+        self.getValueBuffer().initializeMemory(
+            as: Int8.self, repeating: 0, count: size
+        )
+    }
+    
     mutating func store(value newValuePtr: RawPointer) {
         self.getValueBuffer().copyMemory(from: newValuePtr, type: self.metadata)
     }

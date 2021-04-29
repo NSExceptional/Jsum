@@ -44,13 +44,22 @@ public enum Jsum {
                 }
             case .class:
                 return try self.decodeClass(metadata as! ClassMetadata, from: json)
-//            case .enum:
-//                <#code#>
-//            case .optional:
-//                return nil
+            case .enum:
+                throw Error.notYetImplemented
+            case .optional:
+                let optional = metadata as! EnumMetadata
+                if json is NSNull {
+                    let none = AnyExistentialContainer(nil: optional)
+                    return none.toAny
+                } else {
+                    return try self.decode(type: optional.genericMetadata.first!, from: json)
+                }
             case .tuple:
                 return try self.decodeTuple(metadata as! TupleMetadata, from: json)
-            default: throw Error.decodingNotSupported("Only tuples can be decoded as of now")
+            default:
+                throw Error.decodingNotSupported(
+                    "Cannot decode kind \(metadata.kind) (\(metadata.type)"
+                )
         }
     }
     
