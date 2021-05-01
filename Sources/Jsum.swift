@@ -91,9 +91,7 @@ public enum Jsum {
             } else {
                 // If the type we're given is JSONCodable, use the type's default value
                 if let type = type as? TypeMetadata, type.conforms(to: JSONCodable.self) {
-                    // TODO: if optional, check if the optional's Wrapped type provides
-                    // a default value and use that instead.
-                    let codable = type as! JSONCodable.Type
+                    let codable = type.type as! JSONCodable.Type
                     decodedProps[key] = codable.defaultJSON.unwrapped
                 } else {
                     throw Error.couldNotDecode(

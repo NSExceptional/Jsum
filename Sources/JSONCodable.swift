@@ -49,6 +49,7 @@ extension JSONCodable {
     }
     
     public var toJSON: JSON {
+        /// TODO: implement reverse decoding so that this works
         if self.isClass {
             return .object(["class": .string("\(type(of: self))")])
         }
