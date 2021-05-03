@@ -14,10 +14,20 @@ public enum Jsum {
         case couldNotDecode(String)
         case decodingNotSupported(String)
         case notYetImplemented
+        case other(Swift.Error)
     }
     
-    static func reflectAllPropsToJSON<T>(_ t: T) -> [String: Any] {
-        return ["fake": "object"]
+    static func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
+        do {
+            let value: T = try self.decode(from: json)
+            return .success(value)
+        } catch {
+            if let error = error as? Jsum.Error {
+                return .failure(error)
+            }
+            
+            return .failure(.other(error))
+        }
     }
 
     static func decode<T>(from json: Any) throws -> T {
