@@ -52,20 +52,23 @@ extension Metadata {
 }
 
 protocol NominalType: TypeMetadata {
-    associatedtype NominalTypeDescriptor: TypeContextDescriptor
-    var descriptor: NominalTypeDescriptor { get }
     var genericMetadata: [Metadata] { get }
     var fieldOffsets: [Int] { get }
     var fields: [Field] { get }
 }
 
-extension ClassMetadata: NominalType {
+protocol ContextualNominalType: NominalType {
+    associatedtype NominalTypeDescriptor: TypeContextDescriptor
+    var descriptor: NominalTypeDescriptor { get }
+}
+
+extension ClassMetadata: NominalType, ContextualNominalType {
     typealias NominalTypeDescriptor = ClassDescriptor
 }
-extension StructMetadata: NominalType {    
+extension StructMetadata: NominalType, ContextualNominalType {    
     typealias NominalTypeDescriptor = StructDescriptor
 }
-extension EnumMetadata: NominalType {
+extension EnumMetadata: NominalType, ContextualNominalType {
     typealias NominalTypeDescriptor = EnumDescriptor
 }
 
@@ -85,7 +88,7 @@ extension NominalType {
 }
 
 // MARK: KVC
-extension NominalType {
+extension ContextualNominalType {
     func recordIndex(forKey key: String) -> Int? {
         return self.descriptor.fields.records.firstIndex { $0.name == key }
     }
