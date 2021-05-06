@@ -205,9 +205,6 @@ extension ClassMetadata {
         )
         
         for (key, value) in props {
-            // Retain object values as needed since they are not
-            // retained when stored via this method and passed as Any
-            Unmanaged.retainIfObject(value)
             // TODO: this shouldn't be inout for this case
             self.set(value: value, forKey: key, pointer: obj~)
         }
@@ -221,10 +218,8 @@ extension StructMetadata {
     func createInstance(props: [String: Any] = [:]) -> Any {
         var box = AnyExistentialContainer(metadata: self)
         for (key, value) in props {
-            // Retain object values as needed since they are not
-            // retained when stored via this method and passed as Any
-            Unmanaged.retainIfObject(value)
-            self.set(value: value, forKey: key, pointer: box.getValueBuffer())
+            var c = container(for: value)
+            self.set(value: value, forKey: key, pointer: box.getValueBuffer()~)
         }
         
         return box.toAny
@@ -257,7 +252,8 @@ extension AnyExistentialContainer {
     }
     
     mutating func store(value newValuePtr: RawPointer) {
-        self.getValueBuffer().copyMemory(from: newValuePtr, type: self.metadata)
+        self.metadata.vwt.initializeWithCopy(self.getValueBuffer(), newValuePtr)
+//        self.getValueBuffer().copyMemory(from: newValuePtr, type: self.metadata)
     }
     
     /// Calls into `projectValue()` but will allocate a box
@@ -270,5 +266,37 @@ extension AnyExistentialContainer {
         
         // We don't need a box or already have one
         return self.projectValue()~
+    }
+}
+
+extension FieldRecord: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        let ptr = self.mangledTypeName.assumingMemoryBound(to: UInt8.self)
+        return self.name + ": \(String(cString: ptr)) ( \(self.referenceStorage) : \(self.flags))"
+    }
+}
+
+extension EnumMetadata {
+    func getTag(for instance: Any) -> UInt32 {
+        var box = container(for: instance)
+        return self.enumVwt.getEnumTag(for: box.projectValue())
+    }
+    
+    func copyPayload(from instance: Any) -> (value: Any, type: Any.Type)? {
+        let tag = self.getTag(for: instance)
+        let isPayloadCase = self.descriptor.numPayloadCases > tag
+        if isPayloadCase {
+            let caseRecord = self.descriptor.fields.records[Int(tag)]
+            let type = self.type(of: caseRecord.mangledTypeName)!
+            var caseBox = container(for: instance)
+            // Copies in the value and allocates a box as needed
+            let payload = AnyExistentialContainer(
+                boxing: caseBox.projectValue()~,
+                type: reflect(type)
+            )
+            return (unsafeBitCast(payload, to: Any.self), type)
+        }
+        
+        return nil
     }
 }
