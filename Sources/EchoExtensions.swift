@@ -49,6 +49,14 @@ extension Metadata {
         
         return KnownMetadata.Builtin.jsumSupported.contains(self.ptr)
     }
+    
+    func attemptJSONCodableConversion(value: Any) throws -> Any? {
+        if let src = value as? JSONCodable, let destType = self.type as? JSONCodable.Type {
+            return try destType.decode(from: src.toJSON)
+        }
+        
+        return nil
+    }
 }
 
 protocol NominalType: TypeMetadata {
