@@ -35,6 +35,11 @@ extension KnownMetadata.Builtin {
     }
 }
 
+extension KnownMetadata {
+    static var array: StructDescriptor = reflectStruct([Any].self)!.descriptor
+    static var dictionary: StructDescriptor = reflectStruct([String:Any].self)!.descriptor
+}
+
 extension Metadata {
     /// This doesn't actually work very well since Double etc aren't opaque,
     /// but instead contain a single member that is itself opaque
