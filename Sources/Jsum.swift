@@ -134,11 +134,29 @@ public enum Jsum {
     
     // MARK: Struct decoding
     
-    private static func decodeStruct(_ metadata: StructMetadata, from json: Any) throws -> Any {
+    private static func decodeStruct(_ metadata: StructMetadata, from data: Any) throws -> Any {
         assert(!metadata.isBuiltin)
         
-        guard let json = json as? [String: Any] else {
+        guard let json = data as? [String: Any] else {
+            // Case: decoding an array
+            if let array = data as? [Any], metadata.descriptor == KnownMetadata.array {
+                let elementType = metadata.genericMetadata.first!
+                return try array.map { try self.decode(type: elementType, from: $0) }
+            }
+            
+            // Case: decoding a JSONCodable from another JSONCodable without a transformer
+            if let convertedValue = try metadata.attemptJSONCodableConversion(value: data) {
+                return convertedValue
+            }
+            
             throw Error.couldNotDecode("Cannot decode classes and most structs without a dictionary")
+        }
+        
+        // Case: decoding a dictionary
+        // TODO: Allow decoding from more complex dictionary types
+        if metadata.descriptor == KnownMetadata.dictionary {
+            let elementType = metadata.genericMetadata[1]
+            return try json.mapValues { try self.decode(type: elementType, from: $0) }
         }
         
         let decodedProps = try self.decode(properties: json, forType: metadata)
@@ -154,7 +172,19 @@ public enum Jsum {
         if type(of: json) == metadata.type {
             return json
         } else {
-            let nsnumber = json as AnyObject as! NSNumber
+            guard let nsnumber = json as AnyObject as? NSNumber else {
+                // We are trying to decode a number from something other than a number;
+                // There is no transformer for whatever we're decoding, so try to
+                // implicitly convert it if both types conform to JSONCodable
+                if let convertedValue = try metadata.attemptJSONCodableConversion(value: json) {
+                    return convertedValue
+                }
+                
+                throw Error.couldNotDecode(
+                    "Cannot convert non-JSONCodable type '\(metadata.type)' to a number"
+                )
+            }
+            
             return self.convert(number: nsnumber, to: metadata.type)
         }
     }
