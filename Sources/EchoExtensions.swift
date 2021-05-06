@@ -75,11 +75,12 @@ extension NominalType {
         if let jsoncodable = self.type as? JSONCodable.Type {
             return (
                 jsoncodable.transformersByProperty,
-                jsoncodable.jsonKeyPathsByProperty
+                jsoncodable.jsonKeyPathsByProperty,
+                jsoncodable.defaultsByProperty
             )
         }
         
-        return ([:], [:])
+        return ([:], [:], [:])
     }
 }
 

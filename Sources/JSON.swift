@@ -16,7 +16,7 @@ public enum JSON: Equatable {
     case array([JSON])
     case object([String: JSON])
     
-    var unwrapped: Any {
+    public var unwrapped: Any {
         switch self {
             case .null: return NSNull()
             case .bool(let v): return v
@@ -28,7 +28,7 @@ public enum JSON: Equatable {
         }
     }
     
-    var toBool: Bool {
+    public var toBool: Bool {
         switch self {
             case .null: return false
             case .bool(let v): return v
@@ -40,7 +40,7 @@ public enum JSON: Equatable {
         }
     }
     
-    var toInt: Int? {
+    public var toInt: Int? {
         switch self {
             case .null: return 0
             case .bool(let v): return v ? 1 : 0
@@ -52,7 +52,7 @@ public enum JSON: Equatable {
         }
     }
     
-    var toFloat: Double? {
+    public var toFloat: Double? {
         switch self {
             case .null: return 0
             case .bool(let v): return v ? 1 : 0
@@ -64,7 +64,7 @@ public enum JSON: Equatable {
         }
     }
     
-    var toString: String {
+    public var toString: String {
         switch self {
             case .null: return "null"
             case .bool(let v): return String(v)
@@ -79,7 +79,7 @@ public enum JSON: Equatable {
         }
     }
     
-    var asArray: [JSON] {
+    public var asArray: [JSON] {
         switch self {
             case .null: return []
             case .array(let a): return a
@@ -88,7 +88,7 @@ public enum JSON: Equatable {
         }
     }
     
-    var asObject: [String: JSON] {
+    public var asObject: [String: JSON] {
         switch self {
             case .null: return [:]
             case .object(let o): return o

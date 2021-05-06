@@ -17,7 +17,7 @@ public enum Jsum {
         case other(Swift.Error)
     }
     
-    static func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
+    public static func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
         do {
             let value: T = try self.decode(from: json)
             return .success(value)
@@ -30,7 +30,7 @@ public enum Jsum {
         }
     }
 
-    static func decode<T>(from json: Any) throws -> T {
+    public static func decode<T>(from json: Any) throws -> T {
         let metadata = reflect(T.self)
         let box = try self.decode(type: metadata, from: json)
         return box as! T
@@ -81,7 +81,7 @@ public enum Jsum {
     }
     
     private static func decode<M: NominalType>(properties: [String: Any], forType metadata: M) throws -> [String: Any] {
-        let (transformers, jsonMap) = metadata.jsonCodableInfoByProperty
+        let (transformers, jsonMap, defaults) = metadata.jsonCodableInfoByProperty
         var decodedProps: [String: Any] = [:]
         
         // TODO decode super props
@@ -99,11 +99,18 @@ public enum Jsum {
                 // a new AnyExistentialContainer and return it as Any
                 decodedProps[key] = try self.decode(type: type, from: value)
             } else {
+                // Check if a default value was supplied
+                if let defaultValue = defaults[key] {
+                    decodedProps[key] = defaultValue
+                }
                 // If the type we're given is JSONCodable, use the type's default value
-                if let type = type as? TypeMetadata, type.conforms(to: JSONCodable.self) {
-                    let codable = type.type as! JSONCodable.Type
-                    decodedProps[key] = codable.defaultJSON.unwrapped
-                } else {
+                else if let type = type as? TypeMetadata, type.conforms(to: JSONCodable.self),
+                   let codable = type.type as? JSONCodable.Type {
+                    // Decode the default value to the expected type
+                    let defaultValue = codable.defaultJSON.unwrapped
+                    decodedProps[key] = try self.decode(type: type, from: defaultValue)
+                }
+                else {
                     throw Error.couldNotDecode(
                         "Missing key '\(key)' with no default value for type '\(type.type)'"
                     )

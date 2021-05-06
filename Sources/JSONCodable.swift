@@ -14,7 +14,8 @@ public enum JSONDecodableError: Error {
 
 typealias JSONCodableInfo = (
     transformers: [String: AnyTransformer],
-    jsonKeyPaths: [String: String]
+    jsonKeyPaths: [String: String],
+    defaults: [String: Any]
 )
 
 public protocol JSONCodable {
@@ -27,6 +28,7 @@ public protocol JSONCodable {
     static var jsonKeyPathForDecoding: PartialKeyPath<JSON> { get }
     static var transformersByProperty: [String: AnyTransformer] { get }
     static var jsonKeyPathsByProperty: [String: String] { get }
+    static var defaultsByProperty: [String: Any] { get }
     /// Initialize an instance of the conformer from JSON
     static func decode(from json: JSON) throws -> Self
 }
@@ -72,6 +74,7 @@ extension JSONCodable {
     public static var jsonKeyPathForDecoding: PartialKeyPath<JSON> { \JSON.self }
     public static var transformersByProperty: [String: AnyTransformer] { [:] }
     public static var jsonKeyPathsByProperty: [String: String] { [:] }
+    public static var defaultsByProperty: [String: Any] { [:] }
     
     public static func decode(from json: JSON) throws -> Self {
         if let keyPath = self.jsonKeyPathForDecoding as? KeyPath<JSON,Self?> {
