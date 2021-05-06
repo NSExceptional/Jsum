@@ -233,6 +233,10 @@ extension ClassMetadata {
 // MARK: Struct initialization
 extension StructMetadata {
     func createInstance(props: [String: Any] = [:]) -> Any {
+        let givenKeys = Set(props.keys.map { $0 as String })
+        let allKeys = Set(self.descriptor.fields.records.map(\.name))
+        assert(givenKeys == allKeys)
+        
         var box = AnyExistentialContainer(metadata: self)
         for (key, value) in props {
             var c = container(for: value)

@@ -120,3 +120,15 @@ class JustDeallocateMe {
         self.expectation.fulfill()
     }
 }
+
+struct JustDecodeMe: JSONCodable {
+    static var defaultsByProperty: [String: Any] = [
+        "truth": true,
+        "five": 5,
+        "pie": 3.14
+    ]
+    
+    let truth: Bool
+    let five: Int
+    let pie: Double
+}

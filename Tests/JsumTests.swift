@@ -29,30 +29,6 @@ class JsumTests: XCTestCase {
             from: ["name": "Bob", "age": 25]
         )
     }
-    
-    func testBuiltinMetadata() {
-        let intm = reflect(Int.self)
-        XCTAssert(intm.isBuiltin)
-        
-        let stringm = reflect(String.self)
-        XCTAssert(!stringm.isBuiltin)
-    }
-    
-    func testEmptyStruct() {
-        struct Nothing { }
-        
-        let metadata = reflectStruct(Nothing.self)!
-        XCTAssert(metadata.fields.isEmpty)
-        XCTAssert(metadata.vwt.size == 0)
-    }
-    
-    func testFieldedTypeHasNoComputedFields() {
-        let metadata = reflectClass(Person.self)!
-        let fields = metadata.descriptor.fields
-        
-        XCTAssertEqual(fields.records.count, metadata.fieldOffsets.count)
-        XCTAssert(fields.records.filter({ $0.name == "tuple" }).isEmpty)
-    }
 
     func testProtocolConformances() {
         let person = reflectClass(Person.self)!
@@ -107,7 +83,6 @@ class JsumTests: XCTestCase {
         let data: [String: Any] = [
             "title": "My cat is so cute",
             "body_markdown": NSNull(),
-            "saved": NSNull(),
             "details": [
                 "score": "-25034",
                 "upvoted": NSNull()
@@ -133,8 +108,29 @@ class JsumTests: XCTestCase {
         XCTAssert((type as! EnumMetadata).genericMetadata.first!.type == Any.self)
     }
     
-    func testNSNumber() {
-        // Just needs to not crash
-        let _ = -1234 as AnyObject as! NSNumber
+    func testDefaultValues() {
+        var json: [String: Any] = [:]
+        
+        var instance: JustDecodeMe = try! Jsum.decode(from: json)
+        XCTAssertEqual(instance.truth, true)
+        XCTAssertEqual(instance.five, 5)
+        XCTAssertEqual(instance.pie, 3.14)
+        
+        json = ["truth": false, "five": 1.168, "pie": 10]
+        instance = try! Jsum.decode(from: json)
+        
+        XCTAssertEqual(instance.truth, false)
+        XCTAssertEqual(instance.five, 1)
+        XCTAssertEqual(instance.pie, 10.0)
+    }
+    
+    func testDecodeCollections() {
+        let strings = ["1", "2", "3"]
+        let nums: [Int] = try! Jsum.decode(from: strings)
+        XCTAssertEqual(nums, [1, 2, 3])
+        
+        let numMap = ["a": 1, "b": 2, "c": 3]
+        let stringMap: [String: String] = try! Jsum.decode(from: numMap)
+        XCTAssertEqual(stringMap, ["a": "1", "b": "2", "c": "3"])
     }
 }
