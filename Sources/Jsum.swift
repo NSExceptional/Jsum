@@ -38,6 +38,7 @@ public enum Jsum {
     
     private static func decode(type metadata: Metadata, from json: Any) throws -> Any {
         // Case: NSNull and not optional
+        // TODO: remove this check and allow all JSONCodable types to be defaulted from nil?
         if json is NSNull && metadata.kind != .optional {
             throw Error.couldNotDecode(
                 "Type '\(metadata.type)' cannot be converted from null"
@@ -46,8 +47,6 @@ public enum Jsum {
         
         // Case: Strings, arrays of exact type, etc...
         guard metadata.type != type(of: json) else {
-            // TODO: will this inadvertently execute for Array
-            // when the generic parameters don't match up?
             return json
         }
         
@@ -84,14 +83,36 @@ public enum Jsum {
         let (transformers, jsonMap, defaults) = metadata.jsonCodableInfoByProperty
         var decodedProps: [String: Any] = [:]
         
-        // TODO decode super props
+        /// Throws on invalid JSON key path (i.e. key path goes to a non-object
+        /// somewhere before the end), but just returns nil for missing keys.
+        /// Missing keys are not errors, but invalid JSON key paths are.
+        func valueForProperty(_ propertyKey: String) throws -> Any? {
+            if let jsonKeyPathForProperty = jsonMap[propertyKey] {
+                if let optionalValue = try properties.value(for: jsonKeyPathForProperty) {
+                    return optionalValue
+                }
+            }
+            
+            // Don't throw an error on the property's own key
+            // if it is missing from the payload
+            return try? properties.value(for: propertyKey)
+        }
+        
         for (key, type) in metadata.fields {
-            let jsonKeyPathForProperty = jsonMap[key] ?? key
-            // TODO: propogate thrown errors
-            if var value = try? properties.value(for: jsonKeyPathForProperty) {
-                // Transform value fisrt, if desired
+            if var value = try valueForProperty(key) {
+                // Transform value first, if desired
                 if let transform = transformers[key] {
                     // Pass NSNull as nil to transformers
+                    //
+                    // TODO: there is an inconsistency with this logic. If `valueForProperty`
+                    // above returns NSNull, this code executes and we try to transform it.
+                    // However, if `valueForProperty` returns nil, we skip the transformer
+                    // entirely. NSNull and nil should be treated the same. What is the
+                    // right thing to do here? Require default values for non-JSONCodable
+                    // types and never pass NSNull/nil to a transformer? That may require
+                    // me to rethink how transformers work. (Or will it?)
+                    // I could also just check for a transformer in both cases...?
+                    // Or, do I want to treat missing keys the same as NSNull?
                     value = try transform.transform(forward: value is NSNull ? nil : value)
                 }
                 
