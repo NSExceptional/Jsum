@@ -10,7 +10,7 @@ import Foundation
 import Echo
 import CEcho
 
-public enum Jsum {
+public struct Jsum {
     public enum Error: Swift.Error {
         case couldNotDecode(String)
         case decodingNotSupported(String)
@@ -19,6 +19,14 @@ public enum Jsum {
     }
     
     public static func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
+        return Self().tryDecode(from: json)
+    }
+    
+    public static func decode<T>(from json: Any) throws -> T {
+        return try Self().decode(from: json)
+    }
+    
+    public func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
         do {
             let value: T = try self.decode(from: json)
             return .success(value)
@@ -31,13 +39,13 @@ public enum Jsum {
         }
     }
 
-    public static func decode<T>(from json: Any) throws -> T {
+    public func decode<T>(from json: Any) throws -> T {
         let metadata = reflect(T.self)
         let box = try self.decode(type: metadata, from: json)
         return box as! T
     }
     
-    private static func decode(type metadata: Metadata, from json: Any) throws -> Any {
+    private func decode(type metadata: Metadata, from json: Any) throws -> Any {
         // Case: NSNull and not optional
         // TODO: remove this check and allow all JSONCodable types to be defaulted from nil?
         if json is NSNull && metadata.kind != .optional {
@@ -80,7 +88,7 @@ public enum Jsum {
         }
     }
     
-    private static func decode<M: NominalType>(properties: [String: Any], forType metadata: M) throws -> [String: Any] {
+    private func decode<M: NominalType>(properties: [String: Any], forType metadata: M) throws -> [String: Any] {
         let (transformers, jsonMap, defaults) = metadata.jsonCodableInfoByProperty
         var decodedProps: [String: Any] = [:]
         
@@ -145,7 +153,7 @@ public enum Jsum {
     
     // MARK: Class decoding
     
-    private static func decodeClass(_ metadata: ClassMetadata, from json: Any) throws -> AnyObject {
+    private func decodeClass(_ metadata: ClassMetadata, from json: Any) throws -> AnyObject {
         guard let json = json as? [String: Any] else {
             throw Error.couldNotDecode("Cannot decode classes and most structs without a dictionary")
         }
@@ -156,7 +164,7 @@ public enum Jsum {
     
     // MARK: Struct decoding
     
-    private static func decodeStruct(_ metadata: StructMetadata, from data: Any) throws -> Any {
+    private func decodeStruct(_ metadata: StructMetadata, from data: Any) throws -> Any {
         assert(!metadata.isBuiltin)
         
         guard let json = data as? [String: Any] else {
@@ -189,7 +197,7 @@ public enum Jsum {
     
     // MARK: Built-in decoding
     
-    private static func decodeBuiltinStruct(_ metadata: StructMetadata, from json: Any) throws -> Any {
+    private func decodeBuiltinStruct(_ metadata: StructMetadata, from json: Any) throws -> Any {
         assert(metadata.isBuiltin)
         
         // Types are identical: return the value itself
@@ -209,13 +217,13 @@ public enum Jsum {
                 )
             }
             
-            return self.convert(number: nsnumber, to: metadata.type)
+            return Self.convert(number: nsnumber, to: metadata.type)
         }
     }
     
     // MARK: Tuple decoding
     
-    private static func decodeTuple(_ tupleMetadata: TupleMetadata, from json: Any) throws -> Any {
+    private func decodeTuple(_ tupleMetadata: TupleMetadata, from json: Any) throws -> Any {
         // Allocate space for the tuple
         var box = AnyExistentialContainer(metadata: tupleMetadata)
         let boxBuffer = box.getValueBuffer()
@@ -236,7 +244,7 @@ public enum Jsum {
         throw Error.decodingNotSupported("Tuples can only be decoded from arrays or dictionaries")
     }
     
-    private static func populate(tuple: RawPointer, from array: [Any], _ metadata: TupleMetadata) throws {
+    private func populate(tuple: RawPointer, from array: [Any], _ metadata: TupleMetadata) throws {
         guard array.count == metadata.elements.count else {
             throw Error.couldNotDecode("Array size must match number of elements in tuple type")
         }
@@ -248,7 +256,7 @@ public enum Jsum {
         }
     }
     
-    private static func populate(tuple: RawPointer, from dict: [String: Any], _ metadata: TupleMetadata) throws {
+    private func populate(tuple: RawPointer, from dict: [String: Any], _ metadata: TupleMetadata) throws {
         // Copy each value of the dictionary to each tuple element with the same name at the specified offset
         for (e,name) in zip(metadata.elements, metadata.labels) {
             guard let value = dict[name] else {
@@ -260,7 +268,7 @@ public enum Jsum {
         }
     }
     
-    private static func populate(element e: TupleMetadata.Element, ofTuple tuple: RawPointer, with value: Any) throws {
+    private func populate(element e: TupleMetadata.Element, ofTuple tuple: RawPointer, with value: Any) throws {
         // If the types do not match up, try decoding it again
         if e.type != type(of: value) {
             let decodedValue = try decode(type: e.metadata, from: value)
