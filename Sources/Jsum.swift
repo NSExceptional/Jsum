@@ -8,6 +8,7 @@
 
 import Foundation
 import Echo
+import CEcho
 
 public enum Jsum {
     public enum Error: Swift.Error {
@@ -162,7 +163,8 @@ public enum Jsum {
             // Case: decoding an array
             if let array = data as? [Any], metadata.descriptor == KnownMetadata.array {
                 let elementType = metadata.genericMetadata.first!
-                return try array.map { try self.decode(type: elementType, from: $0) }
+                let mapped = try array.map { try self.decode(type: elementType, from: $0) }
+                return try metadata.dynamicCast(from: mapped)
             }
             
             // Case: decoding a JSONCodable from another JSONCodable without a transformer
@@ -177,7 +179,8 @@ public enum Jsum {
         // TODO: Allow decoding from more complex dictionary types
         if metadata.descriptor == KnownMetadata.dictionary {
             let elementType = metadata.genericMetadata[1]
-            return try json.mapValues { try self.decode(type: elementType, from: $0) }
+            let mapped = try json.mapValues { try self.decode(type: elementType, from: $0) }
+            return try metadata.dynamicCast(from: mapped)
         }
         
         let decodedProps = try self.decode(properties: json, forType: metadata)

@@ -62,6 +62,25 @@ extension Metadata {
         
         return nil
     }
+    
+    func dynamicCast(from variable: Any) throws -> Any {
+        let sourceType = reflect(variable)
+        var inbox = container(for: variable)
+        var box = AnyExistentialContainer(metadata: self)
+        
+        guard swift_dynamicCast(
+            box.getValueBuffer(),
+            inbox.getValueBuffer(),
+            sourceType.ptr,
+            self.ptr, 0
+        ) else {
+            fatalError(
+                "Dynamic cast from \(sourceType.type) to \(self.type) failed"
+            )
+        }
+        
+        return box.toAny
+    }
 }
 
 protocol NominalType: TypeMetadata {
@@ -233,13 +252,14 @@ extension ClassMetadata {
 // MARK: Struct initialization
 extension StructMetadata {
     func createInstance(props: [String: Any] = [:]) -> Any {
-        let givenKeys = Set(props.keys.map { $0 as String })
-        let allKeys = Set(self.descriptor.fields.records.map(\.name))
-        assert(givenKeys == allKeys)
+        assert({
+            let givenKeys = Set(props.keys.map { $0 as String })
+            let allKeys = Set(self.descriptor.fields.records.map(\.name))
+            return givenKeys == allKeys
+        }())
         
         var box = AnyExistentialContainer(metadata: self)
         for (key, value) in props {
-            var c = container(for: value)
             self.set(value: value, forKey: key, pointer: box.getValueBuffer()~)
         }
         
