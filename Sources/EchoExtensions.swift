@@ -64,22 +64,11 @@ extension Metadata {
     }
     
     func dynamicCast(from variable: Any) throws -> Any {
-        let sourceType = reflect(variable)
-        var inbox = container(for: variable)
-        var box = AnyExistentialContainer(metadata: self)
-        
-        guard swift_dynamicCast(
-            box.getValueBuffer(),
-            inbox.getValueBuffer(),
-            sourceType.ptr,
-            self.ptr, 0
-        ) else {
-            fatalError(
-                "Dynamic cast from \(sourceType.type) to \(self.type) failed"
-            )
+        func cast<T>(_: T.Type) -> T {
+            return variable as! T
         }
         
-        return box.toAny
+        return _openExistential(self.type, do: cast(_:))
     }
 }
 
