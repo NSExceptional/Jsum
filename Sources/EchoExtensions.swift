@@ -38,12 +38,15 @@ extension KnownMetadata.Builtin {
 extension KnownMetadata {
     static var array: StructDescriptor = reflectStruct([Any].self)!.descriptor
     static var dictionary: StructDescriptor = reflectStruct([String:Any].self)!.descriptor
+    static var date: StructDescriptor = reflectStruct(Date.self)!.descriptor
+    static var data: StructDescriptor = reflectStruct(Data.self)!.descriptor
+    static var url: StructDescriptor = reflectStruct(URL.self)!.descriptor
 }
 
 extension Metadata {
     /// This doesn't actually work very well since Double etc aren't opaque,
     /// but instead contain a single member that is itself opaque
-    var isBuiltin_alt: Bool {
+    private var isBuiltin_alt: Bool {
         return self is OpaqueMetadata
     }
     
@@ -69,6 +72,13 @@ extension Metadata {
         }
         
         return _openExistential(self.type, do: cast(_:))
+    }
+}
+
+extension StructMetadata {
+    var isDateOrData: Bool {
+        return self.descriptor == KnownMetadata.date ||
+            self.descriptor == KnownMetadata.data
     }
 }
 

@@ -155,6 +155,18 @@ extension Double: JSONCodable {
     public static var defaultJSON: JSON = .float(0)
 }
 
+extension Date: JSONCodable {
+    public static var jsonKeyPathForDecoding: PartialKeyPath<JSON> = \.toDate
+    public var toJSON: JSON { return .float(self.timeIntervalSince1970) }
+    public static var defaultJSON: JSON = .int(0)
+}
+
+extension Data: JSONCodable {
+    public static var jsonKeyPathForDecoding: PartialKeyPath<JSON> = \.toData
+    public var toJSON: JSON { return .string(self.base64EncodedString()) }
+    public static var defaultJSON: JSON = .string("")
+}
+
 extension Array: JSONCodable where Element: JSONCodable {
     public var toJSON: JSON { .array(self.map(\.toJSON)) }
     public static var defaultJSON: JSON { .array([]) }

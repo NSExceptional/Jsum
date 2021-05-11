@@ -12,20 +12,165 @@ import CEcho
 
 public struct Jsum {
     public enum Error: Swift.Error {
+        /// An error was encountered during decoding.
         case couldNotDecode(String)
+        /// Decoding is not supported with the given type or arguments.
         case decodingNotSupported(String)
-        case notYetImplemented
+        /// Some other error was thrown during decoding.
         case other(Swift.Error)
+        case notYetImplemented
     }
     
+    /// The strategy to use for automatically changing the value of keys before decoding.
+    public enum KeyDecodingStrategy {
+
+        /// Use the names of the properties of the type. This is the default strategy.
+        case usePropertyKeys
+
+        /// Convert from "snake_case_keys" to "camelCaseKeys" before attempting
+        /// to match a key with the one specified by the type.
+        /// 
+        /// The conversion to upper case uses `Locale.system`, also known as the
+        /// ICU "root" locale. This means the result is consistent regardless of
+        /// the current user's locale and language preferences.
+        ///
+        /// Converting from snake case to camel case:
+        /// 1. Capitalizes the word starting after each `_`
+        /// 2. Removes all `_`
+        /// 3. Preserves starting and ending `_` (as these are often used to
+        /// indicate private variables or other metadata).
+        /// For example, `one_two_three` becomes `oneTwoThree`.
+        /// `_one_two_three_` becomes `_oneTwoThree_`.
+        ///
+        /// - Note: Using a key decoding strategy has a nominal performance cost,
+        /// as each string key has to be inspected for the `_` character.
+        case convertFromSnakeCase
+
+        /// Provide a custom conversion from the key in the encoded JSON to the
+        /// property key of the decoded types. The last JSON key path component
+        /// is passed to the provided closure. The returned key is used in place of
+        /// the last component in the coding path before decoding. If the result of
+        /// the conversion is a duplicate key, then only one value will be present
+        /// in the container for the type to decode from. Which one is undefined.
+        case custom((String) -> String)
+    }
+    
+    /// The strategy to use for decoding `Date` values.
+    public enum DateDecodingStrategy {
+
+        /// Decode JSON numbers as UNIX timestamps, and strings
+        /// as an ISO-8601-formatted strings. This is the default strategy.
+        case bestGuess
+
+        /// Decode the `Date` as a UNIX timestamp from a JSON number.
+        case secondsSince1970
+
+        /// Decode the `Date` as UNIX millisecond timestamp from a JSON number.
+        case millisecondsSince1970
+
+        /// Decode the `Date` as an ISO-8601-formatted string (in RFC 3339 format).
+        @available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *)
+        case iso8601
+
+        /// Decode the `Date` as a string parsed by the given formatter.
+        /// `DateFormatter` is expensive to create; you should cache it.
+        case formatter(DateFormatter)
+
+        /// Decode the `Date` as a custom value decoded by the given closure.
+        /// Cast the input value to `String` or `Int` etc. as needed.
+        case custom((Any) throws -> Date)
+    }
+
+    /// The strategy to use for decoding `Data` values.
+    public enum DataDecodingStrategy {
+
+        /// Decode the `Data` from a Base64-encoded string. This is the default strategy.
+        case base64
+
+        /// Decode the `Data` as a custom value decoded by the given closure.
+        /// Cast the input value to `String` or `Int` etc. as needed. 
+        case custom((Any) throws -> Data)
+    }
+    
+    private var _failOnMissingKeys: Bool = false
+    private var _failOnNullNonOptionals: Bool = false
+    private var _keyDecoding: KeyDecodingStrategy = .usePropertyKeys
+    private var _dateDecoding: DateDecodingStrategy = .bestGuess
+    private var _dataDecoding: DataDecodingStrategy = .base64
+    private let _iso8601Formatter = ISO8601DateFormatter()
+    
+    private static let specialCaseStructs: [UnsafeRawPointer: OpaqueTransformer] = [
+        KnownMetadata.url.ptr: OpaqueTransformer(forwardBlock: { (value) -> Any in
+            guard let urlString = value! as? String else {
+                throw Error.couldNotDecode("URL requires a string to be decoded")
+            }
+            
+            guard let url = URL(string: urlString) else {
+                throw Error.couldNotDecode("URL(string:) returned nil with string '\(urlString)'")
+            }
+            
+            return url
+        }),
+    ]
+    
+    /// Set whether decoding should fail when no key is present in the
+    /// JSON payload at all for a given property.
+    /// 
+    /// By default, Jsum will attempt to synthesize a default value if the
+    /// property conforms to `JSONCodable`, and _then_ fail if it doesn't.
+    /// Transformers are never invoked on missing keys.
+    /// 
+    /// - Note: The default behavior is the _opposite_ of the default
+    /// parameter passed to this builder-function.
+    public mutating func failOnMissingKeys(_ flag: Bool = true) -> Self {
+        self._failOnMissingKeys = flag
+        return self
+    }
+    
+    /// Set whether decoding should fail when null is decoded for a property
+    /// with a non-optional type, iff no default value is supplied by the
+    /// enclosing type.
+    /// 
+    /// By default, Jsum will attempt to synthesize a default value if the
+    /// property conforms to `JSONCodable`, and _then_ fail if it doesn't.
+    /// Transformers are never invoked on null keys.
+    /// 
+    /// - Note: The default behavior is the _opposite_ of the default
+    /// parameter passed to this builder-function.
+    public mutating func failOnNullNonOptionals(_ flag: Bool = true) -> Self {
+        self._failOnNullNonOptionals = flag
+        return self
+    }
+    
+    /// Change the key decoding strategy from the default `.useDefaultKeys`
+    public mutating func keyDecoding(strategy: KeyDecodingStrategy) -> Self {
+        self._keyDecoding = strategy
+        return self
+    }
+    
+    /// Change the date decoding strategy from the default `.useDefaultKeys`
+    public mutating func dateDecoding(strategy: DateDecodingStrategy) -> Self {
+        self._dateDecoding = strategy
+        return self
+    }
+    
+    /// Change the data decoding strategy from the default `.useDefaultKeys`
+    public mutating func dataDecoding(strategy: DataDecodingStrategy) -> Self {
+        self._dataDecoding = strategy
+        return self
+    }
+    
+    /// Try to decode an instance of `T` from the given JSON object with the default options.
     public static func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
         return Self().tryDecode(from: json)
     }
     
+    /// Decode an instance of `T` from the given JSON object with the default options.
     public static func decode<T>(from json: Any) throws -> T {
         return try Self().decode(from: json)
     }
     
+    /// Try to decode an instance of `T` from the given JSON object.
     public func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
         do {
             let value: T = try self.decode(from: json)
@@ -39,6 +184,7 @@ public struct Jsum {
         }
     }
 
+    /// Decode an instance of `T` from the given JSON object.
     public func decode<T>(from json: Any) throws -> T {
         let metadata = reflect(T.self)
         let box = try self.decode(type: metadata, from: json)
@@ -175,6 +321,20 @@ public struct Jsum {
                 return try metadata.dynamicCast(from: mapped)
             }
             
+            // Case: decoding a Date or Data
+            if metadata.isDateOrData {
+                if metadata.descriptor == KnownMetadata.date {
+                    return try self.decodeDate(from: data, strategy: _dateDecoding)
+                } else {
+                    return try self.decodeData(from: data, strategy: _dataDecoding)
+                }
+            }
+            
+            // Case: decoding another special-cased struct, i.e. URL
+            if let transformer = Jsum.specialCaseStructs[metadata.descriptor.ptr] {
+                return try transformer.transform(forward: data)
+            }
+            
             // Case: decoding a JSONCodable from another JSONCodable without a transformer
             if let convertedValue = try metadata.attemptJSONCodableConversion(value: data) {
                 return convertedValue
@@ -195,7 +355,7 @@ public struct Jsum {
         return metadata.createInstance(props: decodedProps)
     }
     
-    // MARK: Built-in decoding
+    // MARK: Specialized decoding
     
     private func decodeBuiltinStruct(_ metadata: StructMetadata, from json: Any) throws -> Any {
         assert(metadata.isBuiltin)
@@ -218,6 +378,79 @@ public struct Jsum {
             }
             
             return Self.convert(number: nsnumber, to: metadata.type)
+        }
+    }
+    
+    private func decodeDate(from json: Any, strategy: DateDecodingStrategy) throws -> Any {
+        switch strategy {
+            case .bestGuess:
+                if let stringyDate = json as? String {
+                    return try self.decodeDate(from: stringyDate, strategy: .iso8601)
+                }
+                if let number = json as? NSNumber {
+                    return try self.decodeDate(from: number, strategy: .secondsSince1970)
+                }
+                
+                throw Error.couldNotDecode("Tried decoding Date but neither string nor number found")
+                
+            case .secondsSince1970:
+                guard let number = json as? NSNumber else {
+                    throw Error.couldNotDecode("Cannot decode non-number as UNIX timestamp Date")
+                }
+                
+                return Date(timeIntervalSince1970: number.doubleValue)
+
+            case .millisecondsSince1970:
+                guard let number = json as? NSNumber else {
+                    throw Error.couldNotDecode("Cannot decode non-number as UNIX timestamp Date")
+                }
+                
+                return Date(timeIntervalSince1970: number.doubleValue / 1000.0)
+
+            case .iso8601:
+                if #available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
+                    guard let stringyDate = json as? String else {
+                        throw Error.couldNotDecode("DateDecodingStrategy.iso8601 requires a string")
+                    }
+                    guard let date = self._iso8601Formatter.date(from: stringyDate) else {
+                        throw Error.couldNotDecode("Expected date string to be ISO8601-formatted")
+                    }
+
+                    return date
+                }
+                else {
+                    fatalError("ISO8601DateFormatter is unavailable on this platform")
+                }
+
+            case .formatter(let formatter):
+                guard let stringyDate = json as? String else {
+                    throw Error.couldNotDecode("DateDecodingStrategy.formatter requires a string")
+                }
+                guard let date = formatter.date(from: stringyDate) else {
+                    throw Error.couldNotDecode("Date string does not match expected format")
+                }
+                
+                return date
+
+            case .custom(let closure):
+                return try closure(json)
+        }
+    }
+    
+    private func decodeData(from json: Any, strategy: DataDecodingStrategy) throws -> Any {
+        switch strategy {
+            case .base64:
+                guard let base64EncodedData = json as? String else {
+                    throw Error.couldNotDecode("DataDecodingStrategy.base64 expects a string")
+                }
+                guard let data = Data(base64Encoded: base64EncodedData) else {
+                    throw Error.couldNotDecode("String was expected to be base 64 encoded")
+                }
+                
+                return data
+                
+            case .custom(let closure):
+                return try closure(json)
         }
     }
     

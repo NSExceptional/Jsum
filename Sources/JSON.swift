@@ -52,6 +52,7 @@ public enum JSON: Equatable {
         }
     }
     
+    /// Arrays and objects return nil.
     public var toFloat: Double? {
         switch self {
             case .null: return 0
@@ -79,6 +80,41 @@ public enum JSON: Equatable {
         }
     }
     
+    /// Attempts to decode numbers as UNIX timestamps and strings as
+    /// ISO8601 dates on macOS 10.12 and iOS 10 and beyond; this will
+    /// not decode dates from strings on earlier versions of the OSes.
+    public var toDate: Date? {
+        switch self {
+            case .int(let v): return Date(timeIntervalSince1970: Double(v))
+            case .float(let v): return Date(timeIntervalSince1970: v)
+            case .string(let v):
+                if #available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
+                    return ISO8601DateFormatter().date(from: v)
+                } else {
+                    return nil
+                }
+                
+            default: return nil
+        }
+    }
+    
+    /// Attempts to decode strings as base-64 encoded data, and
+    /// arrays and objects as JSON strings converted to data.
+    public var toData: Data? {
+        switch self {
+            case .string(let v): return Data(base64Encoded: v)
+            case .array(_): fallthrough
+            case .object(_):
+                let obj = self.unwrapped
+                return try! JSONSerialization.data(withJSONObject: obj, options: [])
+                
+            default: return nil
+        }
+    }
+    
+    /// Null is returned as an empty array. Arrays are returned
+    /// unmodified. Dictionaries are returned as their values
+    /// alone. Everything else is an empty array.
     public var asArray: [JSON] {
         switch self {
             case .null: return []
@@ -88,6 +124,8 @@ public enum JSON: Equatable {
         }
     }
     
+    /// Null is returned as an empty dictionary. Dictionaries are
+    /// returned ummodified. Everything else is a fatal error.
     public var asObject: [String: JSON] {
         switch self {
             case .null: return [:]
