@@ -13,7 +13,7 @@ public enum TransformError: Error {
 }
 
 public class OpaqueTransformer {
-    public typealias Transformation = (Any?) -> Any
+    public typealias Transformation = (Any?) throws -> Any
     fileprivate var forwardBlock: Transformation? = nil
     fileprivate var reverseBlock: Transformation? = nil
     
@@ -30,11 +30,11 @@ public class OpaqueTransformer {
     }
     
     public func transform(forward value: Any?) throws -> Any {
-        return self.forwardBlock!(value)
+        return try self.forwardBlock!(value)
     }
     
     public func transform(reverse value: Any?) throws -> Any {
-        return self.reverseBlock!(value)
+        return try self.reverseBlock!(value)
     }
 }
 
