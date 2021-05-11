@@ -21,6 +21,11 @@ public struct Jsum {
         case notYetImplemented
     }
     
+    //━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+    //  The following enums were adapted  ┃
+    //  from the Swift Standard Library.  ┃
+    //━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+    
     /// The strategy to use for automatically changing the value of keys before decoding.
     public enum KeyDecodingStrategy {
 
