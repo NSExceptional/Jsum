@@ -10,7 +10,7 @@ import Foundation
 import Echo
 import CEcho
 
-public struct Jsum {
+public class Jsum {
     public enum Error: Swift.Error {
         /// An error was encountered during decoding.
         case couldNotDecode(String)
@@ -97,6 +97,8 @@ public struct Jsum {
         case custom((Any) throws -> Data)
     }
     
+    public init() { }
+    
     private var _failOnMissingKeys: Bool = false
     private var _failOnNullNonOptionals: Bool = false
     private var _keyDecoding: KeyDecodingStrategy = .usePropertyKeys
@@ -127,7 +129,7 @@ public struct Jsum {
     /// 
     /// - Note: The default behavior is the _opposite_ of the default
     /// parameter passed to this builder-function.
-    public mutating func failOnMissingKeys(_ flag: Bool = true) -> Self {
+    public func failOnMissingKeys(_ flag: Bool = true) -> Self {
         self._failOnMissingKeys = flag
         return self
     }
@@ -142,41 +144,41 @@ public struct Jsum {
     /// 
     /// - Note: The default behavior is the _opposite_ of the default
     /// parameter passed to this builder-function.
-    public mutating func failOnNullNonOptionals(_ flag: Bool = true) -> Self {
+    public func failOnNullNonOptionals(_ flag: Bool = true) -> Self {
         self._failOnNullNonOptionals = flag
         return self
     }
     
     /// Change the key decoding strategy from the default `.useDefaultKeys`
-    public mutating func keyDecoding(strategy: KeyDecodingStrategy) -> Self {
+    public func keyDecoding(strategy: KeyDecodingStrategy) -> Self {
         self._keyDecoding = strategy
         return self
     }
     
     /// Change the date decoding strategy from the default `.useDefaultKeys`
-    public mutating func dateDecoding(strategy: DateDecodingStrategy) -> Self {
+    public func dateDecoding(strategy: DateDecodingStrategy) -> Self {
         self._dateDecoding = strategy
         return self
     }
     
     /// Change the data decoding strategy from the default `.useDefaultKeys`
-    public mutating func dataDecoding(strategy: DataDecodingStrategy) -> Self {
+    public func dataDecoding(strategy: DataDecodingStrategy) -> Self {
         self._dataDecoding = strategy
         return self
     }
     
     /// Try to decode an instance of `T` from the given JSON object with the default options.
-    public static func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
-        return Self().tryDecode(from: json)
+    public static func tryDecode<T>(_ type: T.Type = T.self, from json: Any) -> Result<T, Jsum.Error> {
+        return Jsum().tryDecode(from: json)
     }
     
     /// Decode an instance of `T` from the given JSON object with the default options.
     public static func decode<T>(from json: Any) throws -> T {
-        return try Self().decode(from: json)
+        return try Jsum().decode(from: json)
     }
     
     /// Try to decode an instance of `T` from the given JSON object.
-    public func tryDecode<T>(from json: Any) -> Result<T, Jsum.Error> {
+    public func tryDecode<T>(_ type: T.Type = T.self, from json: Any) -> Result<T, Jsum.Error> {
         do {
             let value: T = try self.decode(from: json)
             return .success(value)
