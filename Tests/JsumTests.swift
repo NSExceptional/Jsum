@@ -133,4 +133,35 @@ class JsumTests: XCTestCase {
         let stringMap: [String: String] = try! Jsum.decode(from: numMap)
         XCTAssertEqual(stringMap, ["a": "1", "b": "2", "c": "3"])
     }
+    
+    func testDecodeDates() throws {
+        let formatter = ISO8601DateFormatter()
+        let now = Date().ignoringTime
+        let j = Jsum()
+        
+        var date: Date = try j.decode(from: formatter.string(from: now))
+        XCTAssertEqual(date, now)
+        
+        date = try j.decode(from: now.timeIntervalSince1970)
+        XCTAssertEqual(date, now)
+    }
+    
+    func testDecodeData() throws {
+        let string = "Hello, world!"
+        let base64 = string.data(using: .utf8)!.base64EncodedString()
+        
+        let data: Data = try Jsum.decode(from: base64)
+        XCTAssertEqual(String(data: data, encoding: .utf8), string)
+    }
+    
+    func testDecodeURL() throws {
+        struct HasURL: Equatable {
+            var url: URL
+        }
+        let urlString = "https://google.com/"
+        let obj = ["url": urlString]
+        
+        let hasurl: HasURL = try Jsum.decode(from: obj)
+        XCTAssertEqual(URL(string: urlString)!, hasurl.url)
+    }
 }
