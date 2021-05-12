@@ -26,8 +26,20 @@ public protocol JSONCodable {
     /// A key path to a computed property to use to initialize
     /// the conformer or throw an error if the result is nil
     static var jsonKeyPathForDecoding: PartialKeyPath<JSON> { get }
+    /// Transformers are never passed nil; use default values
+    /// to coerce nil to something else. JSONCodable types
+    /// provide default values automatically, too, so you
+    /// only need to provide default values for those if you
+    /// need a different default value than the one provided.
     static var transformersByProperty: [String: AnyTransformer] { get }
+    /// A mapping of property names to JSON key paths. Useful for
+    /// flattening the hierarchy of a particular JSON object.
     static var jsonKeyPathsByProperty: [String: String] { get }
+    /// A mapping of property names to default values. Use this
+    /// to supply a default value for a non-optional property.
+    /// If the type of your property conforms to JSONCodable,
+    /// that type may provide its own default value through
+    /// `var defaultJSON`. This property will override that.
     static var defaultsByProperty: [String: Any] { get }
     /// Initialize an instance of the conformer from JSON
     static func decode(from json: JSON) throws -> Self
@@ -60,11 +72,7 @@ extension JSONCodable {
     }
     
     public static var defaultJSON: JSON {
-        if self.isClass {
-            return .object([:])
-        }
-        
-        return .null
+        fatalError("defaultJSON not implemented for type")
     }
 }
 

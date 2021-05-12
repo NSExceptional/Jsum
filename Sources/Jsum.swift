@@ -12,8 +12,19 @@ import CEcho
 
 public class Jsum {
     public enum Error: Swift.Error {
-        /// An error was encountered during decoding.
+        /// A generic error was encountered during decoding.
         case couldNotDecode(String)
+        /// Null was decoded for a non-optional field with `failOnNullNonOptionals` enabled.
+        /// An attempt to find a default value is made before this error is used.
+        case nullFoundOnNonOptional
+        /// Null was decoded for a non-optional field and no default value could be found.
+        /// This means that the parent type did not supply a default value for this key,
+        /// and the type being decoded does not conform to `JSONCodable`.
+        case nullFoundWithNoDefaultValue
+        /// A key was missing from the payload with `failOnMissingKeys` enabled.
+        /// With `failOnMissingKeys` enabled, this error is thrown regardless of the
+        /// nullability of the type being decoded; it expects a value or `null`.
+        case missingKey
         /// Decoding is not supported with the given type or arguments.
         case decodingNotSupported(String)
         /// Some other error was thrown during decoding.
@@ -121,11 +132,14 @@ public class Jsum {
     ]
     
     /// Set whether decoding should fail when no key is present in the
-    /// JSON payload at all for a given property.
+    /// JSON payload at all for a given property. If the key is just null,
+    /// decoding will not fail. To fail on null, call `failOnNullNonOptionals()`.
     /// 
     /// By default, Jsum will attempt to synthesize a default value if the
     /// property conforms to `JSONCodable`, and _then_ fail if it doesn't.
-    /// Transformers are never invoked on missing keys.
+    /// Setting this flag will cause Jsum to skip that step.
+    /// Additionally, default values are ignored if this flag is set.
+    /// Transformers are never invoked for missing keys.
     /// 
     /// - Note: The default behavior is the _opposite_ of the default
     /// parameter passed to this builder-function.
@@ -136,10 +150,12 @@ public class Jsum {
     
     /// Set whether decoding should fail when null is decoded for a property
     /// with a non-optional type, iff no default value is supplied by the
-    /// enclosing type.
+    /// enclosing type. If the key is missing entirely, decoding will not fail.
+    /// To fail on a missing key, call `failOnMissingKeys()`.
     /// 
     /// By default, Jsum will attempt to synthesize a default value if the
     /// property conforms to `JSONCodable`, and _then_ fail if it doesn't.
+    /// Setting this flag will cause Jsum to skip that step.
     /// Transformers are never invoked on null keys.
     /// 
     /// - Note: The default behavior is the _opposite_ of the default
@@ -200,7 +216,6 @@ public class Jsum {
     
     private func decode(type metadata: Metadata, from json: Any) throws -> Any {
         // Case: NSNull and not optional
-        // TODO: remove this check and allow all JSONCodable types to be defaulted from nil?
         if json is NSNull && metadata.kind != .optional {
             throw Error.couldNotDecode(
                 "Type '\(metadata.type)' cannot be converted from null"
@@ -241,45 +256,116 @@ public class Jsum {
         }
     }
     
+    /// Returns an error if null is encountered with `failOnNullNonOptionals` enabled,
+    /// or if null is encountered and no default value can be generated at all.
+    /// Or, if the type is optional, the value is returned whether or not it is null.
+    private func unboxField(_ value: Any, type metadata: Metadata) -> Result<Any,Error> {
+        if value is NSNull && metadata.kind != .optional {
+            // Null found, user wants error thrown
+            if self._failOnNullNonOptionals {
+                return .failure(.nullFoundOnNonOptional)
+            }
+            // If the type we're given is JSONCodable, use the type's default value
+            else if let codable = metadata.type as? JSONCodable.Type {
+                // Results in fatalError if the type doesn't override `defaultJSON`
+                return .success(codable.defaultJSON.unwrapped)
+            }
+            // It is not JSONCodable so there is no default value; throw an error
+            else {
+                return .failure(.nullFoundWithNoDefaultValue)
+            }
+        } else {
+            // Value may be NSNull here, but if it is, the field type is optional
+            return .success(value)
+        }
+    }
+    
+    /// Note that these will need to be decoded before assignment
+    private func defaultJSONValue(for type: Metadata) -> Any? {
+        if let codable = type.type as? JSONCodable.Type {
+            return codable.defaultJSON.unwrapped
+        }
+        
+        return nil
+    }
+    
     private func decode<M: NominalType>(properties: [String: Any], forType metadata: M) throws -> [String: Any] {
         let (transformers, jsonMap, defaults) = metadata.jsonCodableInfoByProperty
         var decodedProps: [String: Any] = [:]
         
+        /// This cannot be moved because it relies on local variable captures
+        /// 
         /// Throws on invalid JSON key path (i.e. key path goes to a non-object
-        /// somewhere before the end), but just returns nil for missing keys.
-        /// Missing keys are not errors, but invalid JSON key paths are.
-        func valueForProperty(_ propertyKey: String) throws -> Any? {
+        /// somewhere before the end). The behavior for a missing key is
+        /// defined by _failOnMissingKeys. If true, it will throw an error.
+        func valueForProperty(_ propertyKey: String, _ type: Metadata) throws -> Any? {
+            // Did the user specify a new key path for this property?
             if let jsonKeyPathForProperty = jsonMap[propertyKey] {
                 if let optionalValue = try properties.value(for: jsonKeyPathForProperty) {
-                    return optionalValue
+                    let unboxResult = unboxField(optionalValue, type: type)
+                    
+                    // Null found and property is non-optional, user wants error thrown
+                    if case .failure(let unboxError) = unboxResult {
+                        // Did we encounter null with `failOnNullNonOptionals` enabled?
+                        if case .nullFoundOnNonOptional = unboxError {
+                            // Yes, check if a default value was supplied
+                            if defaults[propertyKey] != nil {
+                                // Return nil to use default value later on
+                                return nil
+                            }
+                        }
+                        
+                        // No, we encountered null after c
+                        // TODO defaults?
+                        throw unboxError
+                    }
+                    
+                    // Value found; coerce NSNull to nil
+                    return optionalValue is NSNull ? nil : optionalValue
+                } else if self._failOnMissingKeys {
+                    // Value not found, user wants error thrown
+                    throw Error.missingKey
+                } else {
+                    // Value not found, user wants decoding to continue;
+                    // if no default value is ever supplied, .missingKey
+                    // will be thrown later on
+                    return nil
                 }
             }
             
-            // Don't throw an error on the property's own key
-            // if it is missing from the payload
-            return try? properties.value(for: propertyKey)
+            // User did not override the key path for this property
+            let value = try? properties.value(for: propertyKey)
+            if value == nil {
+                if self._failOnMissingKeys {
+                    // Value not found, user wants error thrown
+                    throw Error.missingKey
+                }
+                // Value not found, user wants decoding to continue
+                return nil
+            }
+            
+            // Null found and property is non-optional, user wants error thrown
+            if value is NSNull && self._failOnNullNonOptionals && type.kind != .optional {
+                throw Error.nullFoundOnNonOptional
+            }
+            
+            // value is not nil here; coerce NSNull to nil
+            return value! is NSNull ? nil : value
         }
         
         for (key, type) in metadata.fields {
-            if var value = try valueForProperty(key) {
+            // Throws on missing keys if _failOnMissingKeys = true.
+            // Throws on null keys if _failOnNullNonOptionals = true.
+            if var value = try valueForProperty(key, type) {
+                assert(!(value is NSNull))
+                
                 // Transform value first, if desired
                 if let transform = transformers[key] {
-                    // Pass NSNull as nil to transformers
-                    //
-                    // TODO: there is an inconsistency with this logic. If `valueForProperty`
-                    // above returns NSNull, this code executes and we try to transform it.
-                    // However, if `valueForProperty` returns nil, we skip the transformer
-                    // entirely. NSNull and nil should be treated the same. What is the
-                    // right thing to do here? Require default values for non-JSONCodable
-                    // types and never pass NSNull/nil to a transformer? That may require
-                    // me to rethink how transformers work. (Or will it?)
-                    // I could also just check for a transformer in both cases...?
-                    // Or, do I want to treat missing keys the same as NSNull?
-                    value = try transform.transform(forward: value is NSNull ? nil : value)
+                    value = try transform.transform(forward: value)
                 }
                 
-                // Decode the value into a buffer, copy the buffer into
-                // a new AnyExistentialContainer and return it as Any
+                // Perform decoding; if the transformed value already
+                // matches the desired type, this should be a no-op
                 decodedProps[key] = try self.decode(type: type, from: value)
             } else {
                 // Check if a default value was supplied
@@ -287,16 +373,15 @@ public class Jsum {
                     decodedProps[key] = defaultValue
                 }
                 // If the type we're given is JSONCodable, use the type's default value
-                else if let type = type as? TypeMetadata, type.conforms(to: JSONCodable.self),
-                   let codable = type.type as? JSONCodable.Type {
+                else if let defaultValue = self.defaultJSONValue(for: type) {
                     // Decode the default value to the expected type
-                    let defaultValue = codable.defaultJSON.unwrapped
                     decodedProps[key] = try self.decode(type: type, from: defaultValue)
                 }
+                // User didn't opt-into missing key errors early on, so we expected
+                // them to supply a default value or use a JSONCodable type with
+                // `defaultJSON` implemented, and we got neither, so here we are
                 else {
-                    throw Error.couldNotDecode(
-                        "Missing key '\(key)' with no default value for type '\(type.type)'"
-                    )
+                    throw Error.missingKey
                 }
             }
         }
@@ -490,9 +575,8 @@ public class Jsum {
         }
         
         // Copy each element of the array to each tuple element at the specified offset
-        for (e,value) in zip(metadata.elements, array) {
-            let newValue = try self.decode(type: e.metadata, from: value)
-            try self.populate(element: e, ofTuple: tuple, with: newValue)
+        for (e, value) in zip(metadata.elements, array) {
+            try self.populate(element: e, ofTuple: tuple, with: value)
         }
     }
     
@@ -503,21 +587,17 @@ public class Jsum {
                 throw Error.couldNotDecode("Missing tuple label '\(name)' in payload")
             }
             
-            let newValue = try self.decode(type: e.metadata, from: value)
-            try self.populate(element: e, ofTuple: tuple, with: newValue)
+            try self.populate(element: e, ofTuple: tuple, with: value)
         }
     }
     
     private func populate(element e: TupleMetadata.Element, ofTuple tuple: RawPointer, with value: Any) throws {
-        // If the types do not match up, try decoding it again
-        if e.type != type(of: value) {
-            let decodedValue = try decode(type: e.metadata, from: value)
-            var valueBox = container(for: decodedValue)
-            tuple.copyMemory(ofTupleElement: valueBox.getValueBuffer(), layout: e)
-        } else {
-            var valueBox = container(for: value)
-            tuple.copyMemory(ofTupleElement: valueBox.getValueBuffer(), layout: e)
-        }
+        // Assert types match and perform nullability checks before decoding
+        let unboxedValue = try self.unboxField(value, type: e.metadata).get()
+        let decodedValue = try self.decode(type: e.metadata, from: unboxedValue)
+        
+        var valueBox = container(for: decodedValue)
+        tuple.copyMemory(ofTupleElement: valueBox.getValueBuffer(), layout: e)
     }
 }
 

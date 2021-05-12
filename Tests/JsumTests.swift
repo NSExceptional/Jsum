@@ -164,4 +164,44 @@ class JsumTests: XCTestCase {
         let hasurl: HasURL = try Jsum.decode(from: obj)
         XCTAssertEqual(URL(string: urlString)!, hasurl.url)
     }
+    
+    func testFailOnNullNonOptionals() {
+        var json: [String: Any] = ["x": 5]
+        // y is missing; we want it to default to 0
+        var result = Jsum.tryDecode(Point.self, from: json)
+        XCTAssert(result.succeeded)
+        
+        // y is missing and non-optional; we want it to default to 0
+        result = Jsum().failOnNullNonOptionals().tryDecode(Point.self, from: json)
+        XCTAssert(result.succeeded)
+        
+        json = ["x": 5, "y": NSNull()]
+        // y is not missing but is nil/null; we want it to fail decoding
+        result = Jsum().failOnNullNonOptionals().tryDecode(Point.self, from: json)
+        XCTAssert(result.failed)
+        
+        // TODO: tests for tuples and enums with payloads, and default values
+    }
+    
+    func testFailOnMissingKeys() {
+        var json: [String: Any] = ["x": 5]
+        // y is missing; we want it to default to 0
+        var result = Jsum.tryDecode(Point.self, from: json)
+        XCTAssert(result.succeeded)
+        
+        // y is missing; we want it to fail decoding
+        result = Jsum().failOnMissingKeys().tryDecode(Point.self, from: json)
+        XCTAssert(result.failed)
+        
+        json = ["x": 5, "y": NSNull()]
+        // y is null; we want it to default to 0
+        result = Jsum.tryDecode(Point.self, from: json)
+        XCTAssert(result.succeeded)
+        
+        // y is not missing, just null; we want it to default to 0
+        result = Jsum().failOnMissingKeys().tryDecode(Point.self, from: json)
+        XCTAssert(result.succeeded)
+        
+        // TODO: tests for tuples and enums with payloads, and default values
+    }
 }
