@@ -238,7 +238,18 @@ public class Jsum {
             case .class:
                 return try self.decodeClass(metadata as! ClassMetadata, from: json)
             case .enum:
-                throw Error.notYetImplemented
+                // Currently, we cannot initialize enums with raw values
+                // by hand, so we have to call the decode method. In the
+                // future, we will cast to RawRepresentable and call then
+                // `init(rawValue:)` with `.defaultJSON.unwrapped` that way
+                guard let codable = metadata.type as? JSONCodable.Type else {
+                    throw Error.notYetImplemented
+                }
+                guard let jsonCodableValue = json as? JSONCodable else {
+                    throw Error.notYetImplemented
+                }
+                
+                return try codable.decode(from: jsonCodableValue.toJSON)
             case .optional:
                 let optional = metadata as! EnumMetadata
                 if json is NSNull {
