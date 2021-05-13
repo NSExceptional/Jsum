@@ -266,6 +266,22 @@ extension StructMetadata {
     }
 }
 
+// MARK: Tuple initialization
+extension TupleMetadata {
+    func createInstance(elements: [Any] = []) -> Any {
+        var box = AnyExistentialContainer(metadata: self)
+        let ptr = box.getValueBuffer()
+        
+        // Copy each element of the array to each tuple element at the specified offset
+        for (e, value) in zip(self.elements, elements) {
+            var valueBox = container(for: value)
+            ptr.copyMemory(ofTupleElement: valueBox.projectValue(), layout: e)
+        }
+        
+        return box.toAny
+    }
+}
+
 // MARK: Populating AnyExistentialContainer
 extension AnyExistentialContainer {
     var toAny: Any {
