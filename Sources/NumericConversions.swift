@@ -29,7 +29,6 @@ extension Jsum {
                 
             case is Float32.Type: return Float32(number.floatValue)
             case is Float64.Type: return Float64(number.doubleValue)
-            case is Float80.Type: return Float80(number.doubleValue)
             case is Float.Type:   return number.floatValue
             case is Double.Type:  return number.doubleValue
             

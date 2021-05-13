@@ -23,7 +23,7 @@ extension KnownMetadata.Builtin {
         return [
             Int8.self, Int16.self, Int32.self, Int64.self, Int.self,
             UInt8.self, UInt16.self, UInt32.self, UInt64.self, UInt.self,
-            Float32.self, Float64.self, Float80.self, Float.self, Double.self
+            Float32.self, Float64.self, Float.self, Double.self
         ]
     }
     
