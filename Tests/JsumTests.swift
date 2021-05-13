@@ -12,6 +12,22 @@ import Foundation
 
 class JsumTests: XCTestCase {
     
+    func testExistentials() {
+        enum Colors: String {
+            case red = "red"
+            case blue = "blue"
+            case green = "green"
+        }
+        
+        let inputValue = "red"
+        func createColor<T: RawRepresentable>(_: T.Type) -> T {
+            return T.init(rawValue: inputValue as! T.RawValue)!
+        }
+
+//        let type: RawRepresentable.Type = Colors.self
+//        let i = _openExistential(type, do: createColor(_:))
+    }
+    
     func testDecodeTuple() throws {
         let person: (name: String, age: Int) = try Jsum.decode(
             from: ["name": "Bob", "age": 25]
