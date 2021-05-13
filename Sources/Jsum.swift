@@ -214,6 +214,19 @@ public class Jsum {
         return box as! T
     }
     
+    /// Decode the 
+    public static func synthesize<T>(_: T.Type = T.self) throws -> T {
+        let metadata = reflect(T.self)
+        return try self.synthesize(type: metadata, asJSON: false) as! T
+    }
+    
+    public static func synthesizeJSON(_ type: Any.Type) throws -> Any {
+        let metadata = reflect(type)
+        return try self.synthesize(type: metadata, asJSON: true)
+    }
+    
+    // MARK: Private: decoding
+    
     private func decode(type metadata: Metadata, from json: Any) throws -> Any {
         // Case: NSNull and not optional
         if json is NSNull && metadata.kind != .optional {
@@ -231,7 +244,7 @@ public class Jsum {
             case .struct:
                 let structure = metadata as! StructMetadata
                 if structure.isBuiltin {
-                    return try self.decodeBuiltinStruct(structure, from: json)
+                    return try Self.decodeBuiltinStruct(structure, from: json)
                 } else {
                     return try self.decodeStruct(structure, from: json)
                 }
@@ -267,6 +280,64 @@ public class Jsum {
         }
     }
     
+    private static func synthesize(type metadata: Metadata, asJSON: Bool = false) throws -> Any {
+        if let value = self.defaultJSONValue(for: metadata, synthesize: false) {
+            return asJSON ? value : value.unwrapped
+        }
+        
+        switch metadata.kind {
+            case .struct:
+                let structure = metadata as! StructMetadata
+                if structure.isBuiltin {
+                    assert(!asJSON) // Built-ins should all have a defaultJSON
+                    return try self.decodeBuiltinStruct(structure, from: 0)
+                } else {
+                    let properties = try structure.fields.reduce(into: [String: Any]()) { (props, field) in
+                        props[field.name] = try self.synthesize(type: field.type, asJSON: asJSON)
+                    }
+                    if asJSON {
+                        return JSON.object(properties as! [String: JSON])
+                    } else {
+                        return structure.createInstance(props: properties)
+                    }
+                }
+            case .class:
+                let cls = metadata as! ClassMetadata
+                let properties = try cls.fields.reduce(into: [String: Any]()) { (props, field) in
+                    props[field.name] = try self.synthesize(type: field.type, asJSON: asJSON)
+                }
+                if asJSON {
+                    return JSON.object(properties as! [String: JSON])
+                } else {
+                    return cls.createInstance(props: properties) as AnyObject
+                }
+            case .enum: fallthrough
+            case .optional:
+                // Currently, we cannot synthesize enums with raw values
+                // by hand, so we have to call the decode method. In the
+                // future, we will cast to RawRepresentable and call then
+                // `init(rawValue:)` with `.defaultJSON.unwrapped` that way
+                guard let codable = metadata.type as? JSONCodable.Type else {
+                    throw Error.notYetImplemented
+                }
+                
+                if asJSON {
+                    return codable.defaultJSON
+                } else {
+                    return try codable.decode(from: codable.defaultJSON)
+                }
+            case .tuple:
+                let tuple = metadata as! TupleMetadata
+                return tuple.createInstance(elements: try tuple.elements.map {
+                    try self.synthesize(type: $0.metadata, asJSON: asJSON)
+                })
+            default:
+                throw Error.decodingNotSupported(
+                    "Cannot decode kind \(metadata.kind) (\(metadata.type))"
+                )
+        }
+    }
+    
     /// Returns an error if null is encountered with `failOnNullNonOptionals` enabled,
     /// or if null is encountered and no default value can be generated at all.
     /// Or, if the type is optional, the value is returned whether or not it is null.
@@ -292,9 +363,13 @@ public class Jsum {
     }
     
     /// Note that these will need to be decoded before assignment
-    private func defaultJSONValue(for type: Metadata) -> Any? {
+    private static func defaultJSONValue(for type: Metadata, synthesize: Bool = true) -> JSON? {
         if let codable = type.type as? JSONCodable.Type {
-            return codable.defaultJSON.unwrapped
+            // Only unwrap if we aren't opting-out of synthesizing or
+            // if the type does not synthesize the default JSON
+            if synthesize || !codable.synthesizesDefaultJSON {
+                return codable.defaultJSON
+            }
         }
         
         return nil
@@ -384,7 +459,8 @@ public class Jsum {
                     decodedProps[key] = defaultValue
                 }
                 // If the type we're given is JSONCodable, use the type's default value
-                else if let defaultValue = self.defaultJSONValue(for: type) {
+                // TODO: should we just try to synthesize it instead?
+                else if let defaultValue = Self.defaultJSONValue(for: type)?.unwrapped {
                     // Decode the default value to the expected type
                     decodedProps[key] = try self.decode(type: type, from: defaultValue)
                 }
@@ -433,6 +509,11 @@ public class Jsum {
                 }
             }
             
+            // Case: decoding a string/bool/number from an foundation type
+            if let cast = try? metadata.dynamicCast(from: data) {
+                return cast
+            }
+            
             // Case: decoding another special-cased struct, i.e. URL
             if let transformer = Jsum.specialCaseStructs[metadata.descriptor.ptr] {
                 return try transformer.transform(forward: data)
@@ -460,7 +541,7 @@ public class Jsum {
     
     // MARK: Specialized decoding
     
-    private func decodeBuiltinStruct(_ metadata: StructMetadata, from json: Any) throws -> Any {
+    private static func decodeBuiltinStruct(_ metadata: StructMetadata, from json: Any) throws -> Any {
         assert(metadata.isBuiltin)
         
         // Types are identical: return the value itself
@@ -480,7 +561,7 @@ public class Jsum {
                 )
             }
             
-            return Self.convert(number: nsnumber, to: metadata.type)
+            return self.convert(number: nsnumber, to: metadata.type)
         }
     }
     

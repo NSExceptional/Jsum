@@ -21,6 +21,8 @@ typealias JSONCodableInfo = (
 public protocol JSONCodable {
     /// Encodes the conformer to JSON
     var toJSON: JSON { get }
+    /// Whether or not to opt-into synthesizing `defaultJSON` for nominal types
+    static var synthesizesDefaultJSON: Bool { get }
     /// Sensible default used to coalesce the conformer from nil
     static var defaultJSON: JSON { get }
     /// A key path to a computed property to use to initialize
@@ -54,13 +56,21 @@ struct AnyJSONCodable {
 }
 
 extension JSONCodable {
-    var existential: AnyExistentialContainer { container(for: self) }
-    var isClass: Bool { self.existential.metadata.kind.isObject }
-    static var existential: AnyExistentialContainer { container(for: self) }
-    static var isClass: Bool {
+    private var existential: AnyExistentialContainer { container(for: self) }
+    private var isClass: Bool { self.existential.metadata.kind.isObject }
+    private static var existential: AnyExistentialContainer { container(for: self) }
+    private static var instanceMetadata: Metadata {
         let metadata = self.existential.metadata as! MetatypeMetadata
-        return metadata.instanceMetadata.kind.isObject
+        return metadata.instanceMetadata
     }
+    static var isClass: Bool {
+        return self.instanceMetadata.kind.isObject
+    }
+    static var isTuple: Bool {
+        return self.instanceMetadata.kind == .tuple
+    }
+    
+    public static var synthesizesDefaultJSON: Bool { false }
     
     public var toJSON: JSON {
         /// TODO: implement reverse decoding so that this works
@@ -72,6 +82,11 @@ extension JSONCodable {
     }
     
     public static var defaultJSON: JSON {
+        if self.synthesizesDefaultJSON {
+            // TODO: make this use values from defaultJSON
+            return try! Jsum.synthesizeJSON(Self.self) as! JSON
+        }
+        
         fatalError("defaultJSON not implemented for type")
     }
 }
@@ -151,6 +166,12 @@ extension String: JSONCodable {
     public static var defaultJSON: JSON = .string("")
 }
 
+extension NSString: JSONCodable {
+    public static var jsonKeyPathForDecoding: PartialKeyPath<JSON> = \.toString
+    public var toJSON: JSON { .string(self as String) }
+    public static var defaultJSON: JSON = .string("")
+}
+
 extension Int: JSONCodable {
     public static var jsonKeyPathForDecoding: PartialKeyPath<JSON> = \.toInt
     public var toJSON: JSON { .int(Int(self)) }
@@ -160,6 +181,21 @@ extension Int: JSONCodable {
 extension Double: JSONCodable {
     public static var jsonKeyPathForDecoding: PartialKeyPath<JSON> = \.toFloat
     public var toJSON: JSON { .float(self) }
+    public static var defaultJSON: JSON = .float(0)
+}
+
+extension NSNumber: JSONCodable {
+    public static var jsonKeyPathForDecoding: PartialKeyPath<JSON> = \.toFloat
+    public var toJSON: JSON {
+        if self.isBool {
+            return .bool(self.boolValue)
+        }
+        if self.isFloat {
+            return .float(self.doubleValue)
+        }
+        return .int(self.intValue)
+    }
+    
     public static var defaultJSON: JSON = .float(0)
 }
 
