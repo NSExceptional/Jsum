@@ -67,11 +67,15 @@ extension Metadata {
     }
     
     func dynamicCast(from variable: Any) throws -> Any {
-        func cast<T>(_: T.Type) -> T {
-            return variable as! T
+        func cast<T>(_: T.Type) throws -> T {
+            guard let casted = variable as? T else {
+                throw Jsum.Error.couldNotDecode("Failed dynamic cast")
+            }
+            
+            return casted
         }
         
-        return _openExistential(self.type, do: cast(_:))
+        return try _openExistential(self.type, do: cast(_:))
     }
 }
 
