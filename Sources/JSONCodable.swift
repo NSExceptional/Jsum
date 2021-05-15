@@ -232,7 +232,9 @@ extension Dictionary: JSONCodable where Key == String, Value: JSONCodable {
 }
 
 extension Dictionary where Key == String {
-    func value(for jsonKeyPath: String) throws -> Any? {
+    /// Given a string like "foo.bar", this assumes the key "foo" contains another
+    /// dictionary, and attempts to retrieve and return its value for "bar"
+    public func jsum_value(for jsonKeyPath: String) throws -> Any? {
         if jsonKeyPath.contains(".") {
             // Nested key paths must consist of at least "x.x"
             assert(jsonKeyPath.count > 2)

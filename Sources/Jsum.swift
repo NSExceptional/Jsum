@@ -399,7 +399,7 @@ public class Jsum {
         func valueForProperty(_ propertyKey: String, _ type: Metadata) throws -> Any? {
             // Did the user specify a new key path for this property?
             if let jsonKeyPathForProperty = jsonMap[propertyKey] {
-                if let optionalValue = try properties.value(for: jsonKeyPathForProperty) {
+                if let optionalValue = try properties.jsum_value(for: jsonKeyPathForProperty) {
                     let unboxResult = unboxField(optionalValue, type: type)
                     
                     // Null found and property is non-optional, user wants error thrown
@@ -432,7 +432,7 @@ public class Jsum {
             }
             
             // User did not override the key path for this property
-            let value = try? properties.value(for: propertyKey)
+            let value = try? properties.jsum_value(for: propertyKey)
             if value == nil {
                 if self._failOnMissingKeys {
                     // Value not found, user wants error thrown
