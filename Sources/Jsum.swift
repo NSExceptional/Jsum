@@ -269,7 +269,19 @@ public class Jsum {
                     let none = AnyExistentialContainer(nil: optional)
                     return none.toAny
                 } else {
-                    return try self.decode(type: optional.genericMetadata.first!, from: json)
+                    // let wrapped = optional.genericMetadata.first!
+                    let value = try self.decode(type: optional.genericMetadata.first!, from: json)
+                    if let emptiable = value as? Emptyable {
+                    // if let codable = wrapped as? JSONCodable.Type, !codable.synthesizesDefaultJSON {
+                        // TODO: runtime equatable check once existentials are unlocked
+                        // For now, explicitly check for String, Int, and Array
+                        if emptiable.isEmpty {
+                            let none = AnyExistentialContainer(nil: optional)
+                            return none.toAny
+                        }
+                    }
+                    
+                    return value
                 }
             case .tuple:
                 return try self.decodeTuple(metadata as! TupleMetadata, from: json)
