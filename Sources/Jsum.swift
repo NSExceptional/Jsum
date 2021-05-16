@@ -108,7 +108,14 @@ public class Jsum {
         case custom((Any) throws -> Data)
     }
     
-    public init() { }
+    public init() {
+        // Enable fractional seconds, which is the default for
+        // JavaScript's Date.toJSON()
+        self._iso8601Formatter.formatOptions = [
+            self._iso8601Formatter.formatOptions,
+            .withFractionalSeconds
+        ]
+    }
     
     private var _failOnMissingKeys: Bool = false
     private var _failOnNullNonOptionals: Bool = false
