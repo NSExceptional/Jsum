@@ -62,13 +62,16 @@ public class Jsum {
         /// as each string key has to be inspected for the `_` character.
         case convertFromSnakeCase
 
-        /// Provide a custom conversion from the key in the encoded JSON to the
+        /// Provide a custom two-way transform from the key in the encoded JSON to the
         /// property key of the decoded types. The last JSON key path component
         /// is passed to the provided closure. The returned key is used in place of
         /// the last component in the coding path before decoding. If the result of
         /// the conversion is a duplicate key, then only one value will be present
         /// in the container for the type to decode from. Which one is undefined.
-        case custom((String) -> String)
+        /// 
+        /// The the forward block should accept a JSON key and convert it to
+        /// a property key. Your transformer must also have a reverse block.
+        case custom(Transform<String,String>)
     }
     
     /// The strategy to use for decoding `Date` values.
@@ -381,6 +384,20 @@ public class Jsum {
         }
     }
     
+    /// Encode a propery key to its corresponding JSON key
+    private func encodeKey(_ propertyKey: String) throws -> String {
+        switch self._keyDecoding {
+            case .usePropertyKeys:
+                return propertyKey
+            case .convertFromSnakeCase:
+                return Jsum.camelCaseToSnakeCase(propertyKey)
+            case .custom(let transformer):
+                /// Reverse because we are ENCODING the property
+                /// key to its JSON key counterpart
+                return try transformer.reverse(propertyKey)
+        }
+    }
+    
     /// Note that these will need to be decoded before assignment
     private static func defaultJSONValue(for type: Metadata, synthesize: Bool = true) -> JSON? {
         if let codable = type.type as? JSONCodable.Type {
@@ -438,8 +455,10 @@ public class Jsum {
                 }
             }
             
-            // User did not override the key path for this property
-            let value = try? properties.jsum_value(for: propertyKey)
+            // User did not override the key path for this property;
+            // Transform the key if needed before accessing JSON with it
+            let encodedPropertyKey = try self.encodeKey(propertyKey)
+            let value = properties[encodedPropertyKey]
             if value == nil {
                 if self._failOnMissingKeys {
                     // Value not found, user wants error thrown
@@ -692,10 +711,13 @@ public class Jsum {
     }
     
     private func populate(tuple: RawPointer, from dict: [String: Any], _ metadata: TupleMetadata) throws {
+        // Transform the keys if needed before accessing JSON with it
+        let keys = try metadata.labels.map { try self.encodeKey($0) }
+        
         // Copy each value of the dictionary to each tuple element with the same name at the specified offset
-        for (e,name) in zip(metadata.elements, metadata.labels) {
-            guard let value = dict[name] else {
-                throw Error.couldNotDecode("Missing tuple label '\(name)' in payload")
+        for (e,key) in zip(metadata.elements, keys) {
+            guard let value = dict[key] else {
+                throw Error.couldNotDecode("Missing tuple element value for expected payload key '\(key)'")
             }
             
             try self.populate(element: e, ofTuple: tuple, with: value)
