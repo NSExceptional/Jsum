@@ -64,4 +64,29 @@ extension Jsum {
         }
         return result
     }
+
+extension Result {
+    public var failed: Bool {
+        if case .failure(_) = self {
+            return true
+        }
+        
+        return false
+    }
+    
+    public var succeeded: Bool {
+        if case .failure(_) = self {
+            return false
+        }
+        
+        return true
+    }
+    
+    public var error: Failure? {
+        if case .failure(let e) = self {
+            return e
+        }
+        
+        return nil
+    }
 }

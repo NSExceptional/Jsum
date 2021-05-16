@@ -17,21 +17,3 @@ extension Date {
         return Calendar.current.date(from: comps)!
     }
 }
-
-extension Result {
-    var failed: Bool {
-        if case .failure(_) = self {
-            return true
-        }
-        
-        return false
-    }
-    
-    var succeeded: Bool {
-        if case .failure(_) = self {
-            return false
-        }
-        
-        return true
-    }
-}
