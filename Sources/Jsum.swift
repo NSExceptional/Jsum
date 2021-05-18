@@ -24,12 +24,31 @@ public class Jsum {
         /// A key was missing from the payload with `failOnMissingKeys` enabled.
         /// With `failOnMissingKeys` enabled, this error is thrown regardless of the
         /// nullability of the type being decoded; it expects a value or `null`.
-        case missingKey
+        case missingKey(String, String)
         /// Decoding is not supported with the given type or arguments.
         case decodingNotSupported(String)
         /// Some other error was thrown during decoding.
         case other(Swift.Error)
         case notYetImplemented
+        
+        public var localizedDescription: String {
+            switch self {
+                case .couldNotDecode(let msg):
+                    return "Could not decode: " + msg
+                case .nullFoundOnNonOptional:
+                    return "Null decoded for non-optional property"
+                case .nullFoundWithNoDefaultValue:
+                    return "Null decoded for non-optional property and could not be synthesized"
+                case .missingKey(let propKey, let encodedKey):
+                    return "Key '\(encodedKey)' not found for property '\(propKey)'"
+                case .decodingNotSupported(let msg):
+                    return msg
+                case .other(let e):
+                    return e.localizedDescription
+                case .notYetImplemented:
+                    return "Internal – Not yet implemented"
+            }
+        }
     }
     
     //━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -446,7 +465,7 @@ public class Jsum {
                     return optionalValue is NSNull ? nil : optionalValue
                 } else if self._failOnMissingKeys {
                     // Value not found, user wants error thrown
-                    throw Error.missingKey
+                    throw Error.missingKey(propertyKey, jsonKeyPathForProperty)
                 } else {
                     // Value not found, user wants decoding to continue;
                     // if no default value is ever supplied, .missingKey
@@ -462,7 +481,7 @@ public class Jsum {
             if value == nil {
                 if self._failOnMissingKeys {
                     // Value not found, user wants error thrown
-                    throw Error.missingKey
+                    throw Error.missingKey(propertyKey, encodedPropertyKey)
                 }
                 // Value not found, user wants decoding to continue
                 return nil
@@ -506,7 +525,7 @@ public class Jsum {
                 // them to supply a default value or use a JSONCodable type with
                 // `defaultJSON` implemented, and we got neither, so here we are
                 else {
-                    throw Error.missingKey
+                    throw Error.missingKey(key, key)
                 }
             }
         }
