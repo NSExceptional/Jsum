@@ -8,7 +8,6 @@
 
 import Foundation
 import Echo
-import CEcho
 
 public class Jsum {
     public enum Error: Swift.Error {

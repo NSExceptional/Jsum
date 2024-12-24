@@ -8,7 +8,6 @@
 
 import Foundation
 import Echo
-import CEcho
 
 typealias RawType = UnsafeRawPointer
 typealias Field = (name: String, type: Metadata)
