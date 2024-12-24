@@ -12,20 +12,33 @@ import Foundation
 
 class JsumTests: XCTestCase {
     
-    func testExistentials() {
+    func testOpenExistentials() throws {
+        
         enum Colors: String {
             case red = "red"
             case blue = "blue"
             case green = "green"
         }
         
+        struct Marker {
+            let color: Colors
+        }
+        
+        let marker: Marker = try Jsum.decode(from: ["color": "red"])
+        let color: Colors = try Jsum.decode(from: "red")
+        
+        XCTAssertEqual(marker.color, .red)
+        XCTAssertEqual(marker.color, color)
+        
         let inputValue = "red"
         func createColor<T: RawRepresentable>(_: T.Type) -> T {
             return T.init(rawValue: inputValue as! T.RawValue)!
         }
 
-//        let type: RawRepresentable.Type = Colors.self
+//        let type: any RawRepresentable.Type = Colors.self
 //        let i = _openExistential(type, do: createColor(_:))
+//        
+//        XCTAssertEqual(i as? Colors, .red)
     }
     
     func testDecodeTuple() throws {
@@ -152,10 +165,13 @@ class JsumTests: XCTestCase {
     
     func testDecodeDates() throws {
         let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [formatter.formatOptions, .withFractionalSeconds]
+        
         let now = Date().ignoringTime
         let j = Jsum()
+        let dateString = formatter.string(from: now)
         
-        var date: Date = try j.decode(from: formatter.string(from: now))
+        var date: Date = try j.decode(from: dateString)
         XCTAssertEqual(date, now)
         
         date = try j.decode(from: now.timeIntervalSince1970)
