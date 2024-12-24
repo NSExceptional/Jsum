@@ -93,17 +93,30 @@ protocol NominalType: TypeMetadata {
 
 protocol ContextualNominalType: NominalType {
     associatedtype NominalTypeDescriptor: TypeContextDescriptor
-    var descriptor: NominalTypeDescriptor { get }
+    var nominalDescriptor: NominalTypeDescriptor? { get }
+    var name: String { get }
+}
+
+extension ContextualNominalType {
+    var name: String {
+        return self.nominalDescriptor?.name ?? "\(self)"
+    }
 }
 
 extension ClassMetadata: NominalType, ContextualNominalType {
-    typealias NominalTypeDescriptor = ClassDescriptor
+    var nominalDescriptor: ClassDescriptor? {
+        descriptor
+    }
 }
-extension StructMetadata: NominalType, ContextualNominalType {    
-    typealias NominalTypeDescriptor = StructDescriptor
+extension StructMetadata: NominalType, ContextualNominalType {
+    var nominalDescriptor: StructDescriptor? {
+        descriptor
+    }
 }
 extension EnumMetadata: NominalType, ContextualNominalType {
-    typealias NominalTypeDescriptor = EnumDescriptor
+    var nominalDescriptor: Echo.EnumDescriptor? {
+        descriptor
+    }
 }
 
 // MARK: JSONCodable
@@ -124,7 +137,7 @@ extension NominalType {
 // MARK: KVC
 extension ContextualNominalType {
     func recordIndex(forKey key: String) -> Int? {
-        return self.descriptor.fields.records.firstIndex { $0.name == key }
+        return self.nominalDescriptor?.fields.records.firstIndex { $0.name == key }
     }
     
     func fieldOffset(for key: String) -> Int? {
@@ -140,7 +153,10 @@ extension ContextualNominalType {
     }
     
     var _shallowFields: [Field] {
-        let r: [FieldRecord] = self.descriptor.fields.records
+        guard let r: [FieldRecord] = self.nominalDescriptor?.fields.records else {
+            return []
+        }
+        
         return r.filter(\.hasMangledTypeName).map {
             return (
                 $0.name,
@@ -176,7 +192,7 @@ extension ClassMetadata {
             if let sup = self.superclassMetadata {
                 return sup.getValue(forKey: key, from: object)
             } else {
-                fatalError("Class '\(self.descriptor.name)' has no member '\(key)'")
+                fatalError("Class '\(self.name)' has no member '\(key)'")
             }
         }
 
@@ -193,7 +209,7 @@ extension ClassMetadata {
             if let sup = self.superclassMetadata {
                 return sup.set(value: value, forKey: key, pointer: ptr)
             } else {
-                fatalError("Class '\(self.descriptor.name)' has no member '\(key)'")
+                fatalError("Class '\(self.name)' has no member '\(key)'")
             }
         }
         
