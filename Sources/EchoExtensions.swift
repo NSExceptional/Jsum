@@ -344,12 +344,12 @@ extension AnyExistentialContainer {
     }
 }
 
-extension FieldRecord: CustomDebugStringConvertible {
-    public var debugDescription: String {
-        let ptr = self.mangledTypeName.assumingMemoryBound(to: UInt8.self)
-        return self.name + ": \(String(cString: ptr)) ( \(self.referenceStorage) : \(self.flags))"
-    }
-}
+//internal extension FieldRecord: @retroactive CustomDebugStringConvertible {
+//    var debugDescription: String {
+//        let ptr = self.mangledTypeName.assumingMemoryBound(to: UInt8.self)
+//        return self.name + ": \(String(cString: ptr)) ( \(self.referenceStorage) : \(self.flags))"
+//    }
+//}
 
 extension EnumMetadata {
     func getTag(for instance: Any) -> UInt32 {
