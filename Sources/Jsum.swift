@@ -10,7 +10,7 @@ import Foundation
 import Echo
 
 public class Jsum {
-    public enum Error: Swift.Error {
+    public enum Error: LocalizedError {
         /// A generic error was encountered during decoding.
         case couldNotDecode(String)
         /// Null was decoded for a non-optional field with `failOnNullNonOptionals` enabled.
@@ -30,7 +30,7 @@ public class Jsum {
         case other(Swift.Error)
         case notYetImplemented
         
-        public var localizedDescription: String {
+        public var errorDescription: String? {
             switch self {
                 case .couldNotDecode(let msg):
                     return "Could not decode: " + msg
