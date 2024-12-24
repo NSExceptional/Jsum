@@ -132,6 +132,7 @@ public class Jsum {
     public init() {
         // Enable fractional seconds, which is the default for
         // JavaScript's Date.toJSON()
+        // TODO: this actually only works if the date also has fractional seconds 💀 fix it
         self._iso8601Formatter.formatOptions = [
             self._iso8601Formatter.formatOptions,
             .withFractionalSeconds
@@ -279,18 +280,26 @@ public class Jsum {
             case .class:
                 return try self.decodeClass(metadata as! ClassMetadata, from: json)
             case .enum:
+            
+                /// This is needed because we cannot write `as? enumType.RawValue` below,
+                /// because the compiler expects a type literal, not a type variable
+                func initRawRepresentable<R: RawRepresentable>(_ _: R.Type, with value: Any) -> R? {
+                    guard let value = value as? R.RawValue else {
+                        return nil
+                    }
+                    
+                    return R.init(rawValue: value)
+                }
+                
                 // Currently, we cannot initialize enums with raw values
                 // by hand, so we have to call the decode method. In the
                 // future, we will cast to RawRepresentable and call then
                 // `init(rawValue:)` with `.defaultJSON.unwrapped` that way
-                guard let codable = metadata.type as? JSONCodable.Type else {
-                    throw Error.notYetImplemented
-                }
-                guard let jsonCodableValue = json as? JSONCodable else {
-                    throw Error.notYetImplemented
+                guard let enumType = metadata.type as? any RawRepresentable.Type else {
+                    throw Error.decodingNotSupported("Enum must be RawRepresentable")
                 }
                 
-                return try codable.decode(from: jsonCodableValue.toJSON)
+                return initRawRepresentable(enumType, with: json) as Any
             case .optional:
                 let optional = metadata as! EnumMetadata
                 if json is NSNull {

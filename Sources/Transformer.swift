@@ -12,6 +12,7 @@ public enum TransformError: Error {
     case notConvertible
 }
 
+/// A non-generic transformer class. You should use `Transform<T,U>` first if you can.
 public class OpaqueTransformer {
     public typealias Transformation = (Any?) throws -> Any
     fileprivate var forwardBlock: Transformation? = nil
