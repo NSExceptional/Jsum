@@ -533,7 +533,7 @@ public class Jsum {
                 // them to supply a default value or use a JSONCodable type with
                 // `defaultJSON` implemented, and we got neither, so here we are
                 else {
-                    throw Error.missingKey(key, key)
+                    throw Error.missingKey(key, jsonMap[key] ?? key)
                 }
             }
         }
