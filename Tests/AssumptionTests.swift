@@ -42,7 +42,9 @@ class Assumptions: XCTestCase {
     
     func testFieldedTypeHasNoComputedFields() {
         let metadata = reflectClass(Person.self)!
-        let fields = metadata.descriptor.fields
+        guard let fields = metadata.descriptor?.fields else {
+            return XCTFail()
+        }
         
         XCTAssertEqual(fields.records.count, metadata.fieldOffsets.count)
         XCTAssert(fields.records.filter({ $0.name == "tuple" }).isEmpty)

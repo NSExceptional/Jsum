@@ -12,6 +12,21 @@ import Foundation
 
 class JsumTests: XCTestCase {
     
+    func testGenericsDecodeCorrectType() throws {
+        class Base: Codable { }
+        class Child: Base {
+            var name: String
+            required init(from decoder: any Decoder) throws { fatalError() }
+        }
+        
+        let opaqueType: Base.Type = Child.self
+        let data = ["name": "Hailey"]
+        
+        let obj: Base = try Jsum.decode(opaqueType, from: data)
+        
+        XCTAssert(type(of: obj) === opaqueType)
+    }
+    
     func testOpenExistentials() throws {
         
         enum Colors: String {
@@ -30,10 +45,10 @@ class JsumTests: XCTestCase {
         XCTAssertEqual(marker.color, .red)
         XCTAssertEqual(marker.color, color)
         
-        let inputValue = "red"
-        func createColor<T: RawRepresentable>(_: T.Type) -> T {
-            return T.init(rawValue: inputValue as! T.RawValue)!
-        }
+//        let inputValue = "red"
+//        func createColor<T: RawRepresentable>(_: T.Type) -> T {
+//            return T.init(rawValue: inputValue as! T.RawValue)!
+//        }
 
 //        let type: any RawRepresentable.Type = Colors.self
 //        let i = _openExistential(type, do: createColor(_:))

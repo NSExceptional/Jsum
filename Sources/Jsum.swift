@@ -214,18 +214,18 @@ public class Jsum {
     
     /// Try to decode an instance of `T` from the given JSON object with the default options.
     public static func tryDecode<T>(_ type: T.Type = T.self, from json: Any) -> Result<T, Jsum.Error> {
-        return Jsum().tryDecode(from: json)
+        return Jsum().tryDecode(type, from: json)
     }
     
     /// Decode an instance of `T` from the given JSON object with the default options.
-    public static func decode<T>(from json: Any) throws -> T {
-        return try Jsum().decode(from: json)
+    public static func decode<T>(_ type: T.Type = T.self, from json: Any) throws -> T {
+        return try Jsum().decode(type, from: json)
     }
     
     /// Try to decode an instance of `T` from the given JSON object.
     public func tryDecode<T>(_ type: T.Type = T.self, from json: Any) -> Result<T, Jsum.Error> {
         do {
-            let value: T = try self.decode(from: json)
+            let value: T = try self.decode(type, from: json)
             return .success(value)
         } catch {
             if let error = error as? Jsum.Error {
@@ -237,15 +237,15 @@ public class Jsum {
     }
 
     /// Decode an instance of `T` from the given JSON object.
-    public func decode<T>(from json: Any) throws -> T {
-        let metadata = reflect(T.self)
+    public func decode<T>(_ type: T.Type = T.self, from json: Any) throws -> T {
+        let metadata = reflect(type)
         let box = try self.decode(type: metadata, from: json)
         return box as! T
     }
     
     /// Decode the 
-    public static func synthesize<T>(_: T.Type = T.self) throws -> T {
-        let metadata = reflect(T.self)
+    public static func synthesize<T>(_ type: T.Type = T.self) throws -> T {
+        let metadata = reflect(type)
         return try self.synthesize(type: metadata, asJSON: false) as! T
     }
     
