@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Echo
+@_implementationOnly import Echo
 
 public enum JSONDecodableError: Error {
     case decodingNotImplemented

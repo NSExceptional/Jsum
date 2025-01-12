@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Echo
+@_implementationOnly import Echo
 
 public class Jsum {
     public enum Error: LocalizedError {

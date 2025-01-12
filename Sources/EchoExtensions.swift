@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Echo
+@_implementationOnly import Echo
 
 typealias RawType = UnsafeRawPointer
 typealias Field = (name: String, type: Metadata)

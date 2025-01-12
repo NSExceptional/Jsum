@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Echo
+@_implementationOnly import Echo
 
 extension StructMetadata {
     var isSimpleType: Bool {

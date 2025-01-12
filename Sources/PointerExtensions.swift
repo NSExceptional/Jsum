@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Echo
+@_implementationOnly import Echo
 
 typealias RawPointer = UnsafeMutableRawPointer
 
